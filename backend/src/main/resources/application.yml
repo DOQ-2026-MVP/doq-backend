@@ -6,6 +6,9 @@ spring:
     username: ${DB_USERNAME:doq}
     password: ${DB_PASSWORD:doq}
     driver-class-name: org.postgresql.Driver
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://doq:doq@localhost:27017/doq?authSource=admin}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -13,6 +16,13 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  docker:
+    compose:
+      enabled: true
+      lifecycle-management: start-and-stop
+      # 컨테이너 준비 대기 타임아웃
+      readiness:
+        wait: always
 
 management:
   endpoints:

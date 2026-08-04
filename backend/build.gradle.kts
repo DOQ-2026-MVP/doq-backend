@@ -22,12 +22,17 @@ repositories {
 dependencies {
     // Web (Spring MVC)
     implementation("org.springframework.boot:spring-boot-starter-web")
-    // JPA
+    // JPA (PostgreSQL)
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    // MongoDB
+    implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
     // Validation
     implementation("org.springframework.boot:spring-boot-starter-validation")
     // Actuator
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // Docker Compose support (auto-launch compose.yaml on bootRun, dev only)
+    developmentOnly("org.springframework.boot:spring-boot-docker-compose")
 
     // Kotlin support
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
