@@ -31,6 +31,9 @@ dependencies {
     // Flyway (schema migration for PostgreSQL)
     implementation("org.flywaydb:flyway-core")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
+    // 취합 파일 파싱 — CSV(Apache Commons CSV) / XLSX(Apache POI)
+    implementation("org.apache.commons:commons-csv:1.11.0")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
     // Actuator
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
