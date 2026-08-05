@@ -3,6 +3,7 @@ package com.doq.comfozi.structuring.ingestion
 import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
+import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionManualInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -30,7 +31,9 @@ class IngestionServiceTest(
             DOC-016,IMAGE,푸른포장(예시),투명리드500,500EA/BOX,BOX,39000,41000,
         """.trimIndent()
 
-        val ingestion = service.createFromBatchFile("test.csv", "text/csv", csv.byteInputStream())
+        val ingestion = service.createFromBatchFile(
+            IngestionBatchFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
+        )
 
         assertNotNull(ingestion.id)
         assertEquals(IngestionStatus.DRAFT, ingestion.status)
@@ -51,31 +54,31 @@ class IngestionServiceTest(
     }
 
     @Test
-    fun `수기 입력은 DRAFT 세션에 uploadRef 없는 행을 추가한다`() {
-        val session = service.createSession()
-        assertEquals(IngestionStatus.DRAFT, session.status)
-
-        val record = service.addManualRecord(
-            session.id!!,
-            IngestionManualInput(
-                docId = "MAN-1",
-                sourceType = "수기",
-                supplier = "직접입력",
-                rawItemName = "임시품목",
-                spec = "1kg/PK",
-                unit = "PK",
-                priceBefore = "1000",
-                priceAfter = "1100",
-                effectiveDate = "2026-08-05",
+    fun `수기 입력으로 새 DRAFT 세션에 uploadRef 없는 행이 적재된다`() {
+        val session = service.createFromManualRecords(
+            listOf(
+                IngestionManualInput(
+                    docId = "MAN-1",
+                    sourceType = "수기",
+                    supplier = "직접입력",
+                    rawItemName = "임시품목",
+                    spec = "1kg/PK",
+                    unit = "PK",
+                    priceBefore = "1000",
+                    priceAfter = "1100",
+                    effectiveDate = "2026-08-05",
+                ),
             ),
         )
 
-        assertNotNull(record.id)
-        assertNull(record.uploadRef) // 수기 = 업로드 출처 없음
-        assertEquals("MAN-1", record.docId)
+        assertNotNull(session.id)
+        assertEquals(IngestionStatus.DRAFT, session.status)
 
         val records = recordRepository.findByIngestionIdOrderByIdAsc(session.id!!)
         assertEquals(1, records.size)
+        val record = records[0]
+        assertNull(record.uploadRef) // 수기 = 업로드 출처 없음
+        assertEquals("MAN-1", record.docId)
     }
 
     @Test
@@ -92,7 +95,9 @@ class IngestionServiceTest(
             bos.toByteArray()
         }
 
-        val ingestion = service.createFromBatchFile("golden.xlsx", null, bytes.inputStream())
+        val ingestion = service.createFromBatchFile(
+            IngestionBatchFileInput(fileName = "golden.xlsx", contentType = null, content = bytes.inputStream()),
+        )
 
         val records = recordRepository.findByIngestionIdOrderByIdAsc(ingestion.id!!)
         assertEquals(1, records.size)
