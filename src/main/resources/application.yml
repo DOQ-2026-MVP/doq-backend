@@ -36,3 +36,10 @@ management:
 
 server:
   port: 8080
+
+# 애플리케이션 설정
+app:
+  storage:
+    local:
+      # 업로드 원본 파일 저장 루트 (로컬 파일시스템)
+      root: ${STORAGE_LOCAL_ROOT:./data/uploads}

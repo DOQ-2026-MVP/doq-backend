@@ -235,3 +235,6 @@ gradle-app.setting
 *.hprof
 
 # End of https://www.toptal.com/developers/gitignore/api/kotlin,java,intellij+all,visualstudiocode,gradle
+
+# 로컬 업로드 파일 저장소
+/data/
