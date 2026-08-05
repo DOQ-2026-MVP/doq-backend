@@ -36,6 +36,8 @@ dependencies {
     implementation("org.apache.poi:poi-ooxml:5.2.5")
     // Actuator
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    // OpenAPI / Swagger UI (springdoc, Spring MVC) — /swagger-ui.html, /v3/api-docs
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
 
     // Docker Compose support (auto-launch compose.yaml on bootRun, dev only)
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
