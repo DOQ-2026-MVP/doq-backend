@@ -1,4 +1,4 @@
-package com.doq.comfozi.structuring.ingestion
+package com.doq.comfozi.structuring.ingestion.support
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -12,7 +12,7 @@ import java.util.UUID
  *
  * 저장 루트는 `app.storage.local.root` (기본 `./data/uploads`)로 주입한다.
  * 저장 키는 UUID라 원본 파일명을 경로에 쓰지 않는다 (path traversal 회피).
- * 원본 파일명은 [IngestionUpload.fileName]에 별도 보관.
+ * 원본 파일명은 domain의 IngestionUpload.fileName에 별도 보관.
  */
 @Component
 class LocalFileStorage(

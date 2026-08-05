@@ -1,4 +1,4 @@
-package com.doq.comfozi.structuring.ingestion
+package com.doq.comfozi.structuring.ingestion.support
 
 import java.io.InputStream
 

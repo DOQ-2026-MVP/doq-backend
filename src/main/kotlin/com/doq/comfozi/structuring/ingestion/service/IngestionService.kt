@@ -1,5 +1,7 @@
-package com.doq.comfozi.structuring.ingestion
+package com.doq.comfozi.structuring.ingestion.service
 
+import com.doq.comfozi.structuring.ingestion.domain.Ingestion
+import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
 import java.io.InputStream
 
 /** 인입 서비스 — 파일/수기 입력을 세션·행으로 적재. */

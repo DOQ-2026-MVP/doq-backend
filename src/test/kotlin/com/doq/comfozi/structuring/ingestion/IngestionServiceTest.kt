@@ -1,5 +1,10 @@
 package com.doq.comfozi.structuring.ingestion
 
+import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
+import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
+import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
+import com.doq.comfozi.structuring.ingestion.service.IngestionManualInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest

@@ -1,4 +1,4 @@
-package com.doq.comfozi.structuring.ingestion
+package com.doq.comfozi.structuring.ingestion.domain
 
 /**
  * 인입 세션([Ingestion]) 라이프사이클 상태.

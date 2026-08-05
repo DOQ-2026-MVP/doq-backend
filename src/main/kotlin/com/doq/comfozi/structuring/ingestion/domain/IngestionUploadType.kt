@@ -1,4 +1,4 @@
-package com.doq.comfozi.structuring.ingestion
+package com.doq.comfozi.structuring.ingestion.domain
 
 /**
  * 업로드 유형 — **파일 업로드** 경로 (per [IngestionUpload]).

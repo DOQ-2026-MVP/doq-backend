@@ -1,5 +1,15 @@
-package com.doq.comfozi.structuring.ingestion
+package com.doq.comfozi.structuring.ingestion.service
 
+import com.doq.comfozi.structuring.ingestion.domain.Ingestion
+import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
+import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
+import com.doq.comfozi.structuring.ingestion.domain.IngestionUpload
+import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
+import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
+import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
+import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
+import com.doq.comfozi.structuring.ingestion.support.FileStorage
+import com.doq.comfozi.structuring.ingestion.support.IngestionUploadBatchFileParser
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.io.InputStream

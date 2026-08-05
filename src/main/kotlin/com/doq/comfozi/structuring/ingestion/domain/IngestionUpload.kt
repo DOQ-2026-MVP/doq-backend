@@ -1,4 +1,4 @@
-package com.doq.comfozi.structuring.ingestion
+package com.doq.comfozi.structuring.ingestion.domain
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -13,7 +13,7 @@ import java.time.LocalDateTime
 /**
  * 업로드 이벤트 (Postgres) — [Ingestion] 세션 안의 한 번의 **파일 업로드** (BATCH_FILE·FILE).
  *
- * 원본 바이트는 파일시스템([FileStorage])에 저장하고 [storageKey]로 참조한다.
+ * 원본 바이트는 파일시스템(support의 FileStorage)에 저장하고 [storageKey]로 참조한다.
  * (수기 입력은 업로드가 아니므로 여기 없음 — [IngestionRecord]만 생성.)
  *
  * NOTE: 필드 잠정. FK는 plain Long (네비게이션 필요 시 @ManyToOne).
