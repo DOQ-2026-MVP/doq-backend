@@ -8,7 +8,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import java.time.Instant
+import java.time.LocalDateTime
 
 /**
  * 업로드 이벤트 (Postgres) — [Ingestion] 세션 안의 한 번의 **파일 업로드** (BATCH_FILE·FILE).
@@ -34,7 +34,7 @@ class IngestionUpload(
     @Column(updatable = false) val size: Long? = null,
 
     @Column(nullable = false, updatable = false)
-    val createdAt: Instant = Instant.now(),
+    val createdAt: LocalDateTime = LocalDateTime.now(),
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

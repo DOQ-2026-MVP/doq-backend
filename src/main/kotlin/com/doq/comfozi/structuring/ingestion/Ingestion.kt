@@ -8,7 +8,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
-import java.time.Instant
+import java.time.LocalDateTime
 
 /**
  * 인입 세션 (Postgres) — 한 작업 단위. 취합 CSV·원본 파일(PDF/이미지)·수기 입력이 이 세션에 섞여 담긴다.
@@ -27,7 +27,7 @@ class Ingestion(
     var status: IngestionStatus = IngestionStatus.DRAFT,
 
     @Column(nullable = false, updatable = false)
-    val createdAt: Instant = Instant.now(),
+    val createdAt: LocalDateTime = LocalDateTime.now(),
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
