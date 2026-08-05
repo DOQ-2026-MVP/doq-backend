@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile
 @Tag(name = "인입(Ingestion)", description = "파일 업로드·수기 입력을 세션에 적재하는 인입 API")
 @RestController
 @RequestMapping("/api/ingestion")
-class IngestionRestController(
+class IngestionController(
     private val service: IngestionService,
 ) {
 

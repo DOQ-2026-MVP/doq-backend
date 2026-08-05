@@ -3,7 +3,7 @@ package com.doq.comfozi.structuring.ingestion.service
 import com.doq.comfozi.structuring.ingestion.domain.Ingestion
 
 /**
- * 인입 서비스 — 파일/수기 입력을 세션·행으로 적재.
+ * 인입 서비스 — 파일/수기 입력을 세션·행으로 적재한다. (조회는 [IngestionReadService])
  * `create*`는 **새 세션**을 만들고, `continue*`는 **기존 DRAFT 세션**에 이어붙인다.
  * 값은 원문 그대로 저장하며 검증/정규화는 하지 않는다(후속 structuring).
  */

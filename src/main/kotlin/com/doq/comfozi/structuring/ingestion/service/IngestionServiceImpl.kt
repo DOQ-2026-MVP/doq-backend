@@ -9,6 +9,7 @@ import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.structuring.ingestion.support.FileStorage
 import com.doq.comfozi.structuring.ingestion.support.IngestionUploadBatchFileParser
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -20,6 +21,7 @@ class IngestionServiceImpl(
     private val recordRepository: IngestionRecordRepository,
     private val fileStorage: FileStorage,
     private val batchFileParser: IngestionUploadBatchFileParser,
+    private val eventPublisher: ApplicationEventPublisher,
 ) : IngestionService {
 
     @Transactional
@@ -58,13 +60,15 @@ class IngestionServiceImpl(
         )
 
         val parsed = batchFileParser.parse(input.fileName, bytes)
-        recordRepository.saveAll(parsed.toEntities(ingestion.id, upload.id!!))
+        val saved = recordRepository.saveAll(parsed.toEntities(ingestion.id, upload.id!!))
+        eventPublisher.publishEvent(IngestionRecordsAppended(ingestion.id, saved))
         return ingestion
     }
 
     private fun ingestManual(inputs: List<IngestionManualInput>, ingestionId: Long? = null): Ingestion {
         val ingestion = resolveDraftSession(ingestionId)
-        recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
+        val saved = recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
+        eventPublisher.publishEvent(IngestionRecordsAppended(ingestion.id!!, saved))
         return ingestion
     }
 
