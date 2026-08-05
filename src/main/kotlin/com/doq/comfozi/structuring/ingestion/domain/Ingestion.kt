@@ -1,4 +1,4 @@
-package com.doq.comfozi.structuring.ingestion
+package com.doq.comfozi.structuring.ingestion.domain
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
