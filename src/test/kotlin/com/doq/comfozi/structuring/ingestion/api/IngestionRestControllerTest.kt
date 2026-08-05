@@ -20,7 +20,7 @@ import kotlin.test.Test
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = ["app.storage.local.root=build/test-uploads"])
-class IngestionControllerTest(
+class IngestionRestControllerTest(
     @Autowired val mockMvc: MockMvc,
     @Autowired val service: IngestionService,
     @Autowired val ingestionRepository: IngestionRepository,
