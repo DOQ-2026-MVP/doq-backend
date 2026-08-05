@@ -9,6 +9,10 @@ spring:
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://doq:doq@localhost:27017/doq?authSource=admin}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
   jpa:
     hibernate:
       ddl-auto: validate

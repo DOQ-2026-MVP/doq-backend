@@ -28,6 +28,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
     // Validation
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    // Flyway (schema migration for PostgreSQL)
+    implementation("org.flywaydb:flyway-core")
+    runtimeOnly("org.flywaydb:flyway-database-postgresql")
     // Actuator
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
