@@ -73,11 +73,9 @@ class IngestionServiceImpl(
         if (ingestionId == null) {
             return createSession()
         }
-        val ingestion  =ingestionRepository.findByIdOrNull(ingestionId)
-        requireNotNull(ingestion) {
-            "알 수 없는 Ingestion 세션 $ingestionId"
-        }
-        require(ingestion.status == IngestionStatus.DRAFT) {
+        val ingestion = ingestionRepository.findByIdOrNull(ingestionId)
+            ?: throw NoSuchElementException("알 수 없는 Ingestion 세션 $ingestionId")
+        check(ingestion.status == IngestionStatus.DRAFT) {
             "DRAFT 세션에만 추가 가능 (현재 ${ingestion.status})"
         }
         return ingestion
