@@ -23,14 +23,14 @@ class IngestionRecordConversionTest {
         assertEquals(2, records.size)
         val first = records[0]
         assertEquals(10L, first.ingestionId)
-        assertEquals("DOC-001", first.docId)
-        assertEquals("토마토살사S/O", first.rawItemName)
-        assertEquals("32000", first.priceBefore)
+        assertEquals("DOC-001", first.content.values["문서ID"])
+        assertEquals("토마토살사S/O", first.content.values["원문 품목명"])
+        assertEquals("32000", first.content.values["기존단가(원)"])
         assertEquals(20L, first.uploadRef?.uploadId)
         assertEquals(IngestionUploadType.BATCH_FILE, first.uploadRef?.uploadType)
         assertEquals(2, first.uploadRef?.rowNo) // 파일 행번호 (헤더=1행)
         assertEquals(3, records[1].uploadRef?.rowNo)
-        assertNull(records[1].effectiveDate) // 빈 값 → null
+        assertEquals("", records[1].content.values["적용일"]) // 빈 값 → 원문 그대로("")
     }
 
     @Test
@@ -38,7 +38,8 @@ class IngestionRecordConversionTest {
         val record = IngestionManualInput(docId = "MAN-1", rawItemName = "임시품목").toEntity(ingestionId = 10L)
 
         assertEquals(10L, record.ingestionId)
-        assertEquals("MAN-1", record.docId)
+        assertEquals("MAN-1", record.content.values["docId"])
+        assertEquals("임시품목", record.content.values["rawItemName"])
         assertNull(record.uploadRef)
     }
 }

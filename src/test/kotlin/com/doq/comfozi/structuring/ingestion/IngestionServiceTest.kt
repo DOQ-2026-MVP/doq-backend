@@ -42,15 +42,15 @@ class IngestionServiceTest(
         assertEquals(2, records.size)
 
         val first = records[0]
-        assertEquals("DOC-001", first.docId)
-        assertEquals("토마토살사S/O", first.rawItemName)
-        assertEquals("32000", first.priceBefore)
+        assertEquals("DOC-001", first.content.values["문서ID"])
+        assertEquals("토마토살사S/O", first.content.values["원문 품목명"])
+        assertEquals("32000", first.content.values["기존단가(원)"])
         assertEquals(IngestionUploadType.BATCH_FILE, first.uploadRef?.uploadType)
         assertEquals(2, first.uploadRef?.rowNo)
 
-        // DOC-016: 적용일 공란 → null (원문 그대로, 검증은 후속 단계)
-        assertNull(records[1].effectiveDate)
-        assertEquals("DOC-016", records[1].docId)
+        // DOC-016: 적용일 공란 → 원문 그대로("") 보관, 매핑/검증은 후속 단계
+        assertEquals("", records[1].content.values["적용일"])
+        assertEquals("DOC-016", records[1].content.values["문서ID"])
     }
 
     @Test
@@ -78,7 +78,7 @@ class IngestionServiceTest(
         assertEquals(1, records.size)
         val record = records[0]
         assertNull(record.uploadRef) // 수기 = 업로드 출처 없음
-        assertEquals("MAN-1", record.docId)
+        assertEquals("MAN-1", record.content.values["docId"])
     }
 
     @Test
@@ -102,9 +102,9 @@ class IngestionServiceTest(
         val records = recordRepository.findByIngestionIdOrderByIdAsc(ingestion.id!!)
         assertEquals(1, records.size)
         val rec = records[0]
-        assertEquals("DOC-002", rec.docId)
-        assertEquals("허브염지닭정육", rec.rawItemName)
-        assertEquals("88200", rec.priceAfter)
+        assertEquals("DOC-002", rec.content.values["문서ID"])
+        assertEquals("허브염지닭정육", rec.content.values["원문 품목명"])
+        assertEquals("88200", rec.content.values["변경단가(원)"])
         assertEquals(IngestionUploadType.BATCH_FILE, rec.uploadRef?.uploadType)
     }
 }

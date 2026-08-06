@@ -30,7 +30,7 @@ class IngestionReadControllerTest(
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.ingestionId").value(id))
-            .andExpect(jsonPath("$.data.records[0].docId").value("MAN-9"))
+            .andExpect(jsonPath("$.data.records[0].content.docId").value("MAN-9"))
     }
 
     @Test
