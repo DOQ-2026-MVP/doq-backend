@@ -32,4 +32,24 @@ class Ingestion(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
+
+    /** 구조화 실패 → [IngestionStatus.FAILED]. 종료(STRUCTURED)만 아니면 가능. 이후 재시도 가능. */
+    fun markFailed() {
+        check(status != IngestionStatus.STRUCTURED) { "실패로 전이할 수 없는 상태: $status" }
+        status = IngestionStatus.FAILED
+    }
+
+    /** 구조화 성공 → [IngestionStatus.STRUCTURED]. DRAFT(최초) 또는 FAILED(재시도)에서. */
+    fun markStructured() {
+        check(status == IngestionStatus.DRAFT || status == IngestionStatus.FAILED) {
+            "구조화 완료로 전이할 수 없는 상태: $status"
+        }
+        status = IngestionStatus.STRUCTURED
+    }
+
+    /** 입력이 바뀌어(업로드 삭제 등) 재검증이 필요 → [IngestionStatus.DRAFT]로 되돌린다. 종료(STRUCTURED)면 불가. */
+    fun reopen() {
+        check(status != IngestionStatus.STRUCTURED) { "완료된(STRUCTURED) 세션은 되돌릴 수 없음" }
+        status = IngestionStatus.DRAFT
+    }
 }

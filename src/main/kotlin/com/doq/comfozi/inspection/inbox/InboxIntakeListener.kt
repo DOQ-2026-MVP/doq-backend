@@ -1,11 +1,11 @@
 package com.doq.comfozi.inspection.inbox
 
-import com.doq.comfozi.structuring.RecordStructured
+import com.doq.comfozi.structuring.StructuredRecord
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
 /**
- * 구조화 결과([RecordStructured]) 수신 → InboxItem 영속 (inspection).
+ * 구조화 결과([StructuredRecord]) 수신 → InboxItem 영속 (inspection).
  *
  * 동기(same-tx) 수신 — 계산은 structuring, 여기선 결과 **저장만** 한다.
  * TODO: 추후 디커플링 고려 (@TransactionalEventListener(AFTER_COMMIT) / outbox).
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component
 class InboxIntakeListener {
 
     @EventListener
-    fun on(event: RecordStructured) {
+    fun on(event: StructuredRecord) {
         println("[InboxIntake] recordId=${event.recordId} flags=${event.flags} observed=${event.observed}")
     }
 }

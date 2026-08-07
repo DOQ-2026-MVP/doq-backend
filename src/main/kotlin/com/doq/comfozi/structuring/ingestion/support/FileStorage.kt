@@ -13,6 +13,9 @@ interface FileStorage {
 
     /** 저장 키로 원본을 다시 읽는다. */
     fun load(storageKey: String): InputStream
+
+    /** 저장 원본을 삭제한다(없으면 무시). */
+    fun delete(storageKey: String)
 }
 
 /** 저장 결과 — 파일시스템 경로 등에 의존하지 않는 불투명 키와 바이트 크기. */

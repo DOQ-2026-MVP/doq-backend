@@ -30,4 +30,8 @@ class LocalFileStorage(
 
     override fun load(storageKey: String): InputStream =
         Files.newInputStream(rootPath.resolve(storageKey))
+
+    override fun delete(storageKey: String) {
+        Files.deleteIfExists(rootPath.resolve(storageKey))
+    }
 }
