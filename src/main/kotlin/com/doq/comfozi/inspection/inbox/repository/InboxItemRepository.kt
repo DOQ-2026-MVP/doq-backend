@@ -4,5 +4,5 @@ import com.doq.comfozi.inspection.inbox.domain.InboxItem
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface InboxItemRepository : JpaRepository<InboxItem, Long> {
-    fun findByIngestionIdOrderByIdAsc(ingestionId: Long): List<InboxItem>
+    fun findByInboxIdOrderByIdAsc(inboxId: Long): List<InboxItem>
 }

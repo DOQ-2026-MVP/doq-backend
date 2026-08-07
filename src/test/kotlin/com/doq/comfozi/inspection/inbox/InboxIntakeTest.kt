@@ -2,6 +2,7 @@ package com.doq.comfozi.inspection.inbox
 
 import com.doq.comfozi.inspection.inbox.domain.InboxItemStatus
 import com.doq.comfozi.inspection.inbox.repository.InboxItemRepository
+import com.doq.comfozi.inspection.inbox.repository.InboxRepository
 import com.doq.comfozi.structuring.StructuringService
 import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag
 import com.doq.comfozi.structuring.ingestion.manualInput
@@ -12,31 +13,35 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * struct → inspection 인계가 InboxItem으로 영속되는지 (동기 same-tx) 확인.
+ * struct → inspection 인계가 Inbox 1개 + InboxItem N개로 영속되는지 (동기 same-tx) 확인.
  * jsonb(MappedRecord·flags) 저장/복원 왕복도 함께 검증한다.
  */
 @SpringBootTest
 class InboxIntakeTest(
     @Autowired val ingestionService: IngestionService,
     @Autowired val structuringService: StructuringService,
+    @Autowired val inboxRepository: InboxRepository,
     @Autowired val inboxItemRepository: InboxItemRepository,
 ) {
 
     @Test
-    fun `struct 결과가 InboxItem으로 영속된다`() {
+    fun `struct 결과가 Inbox 1개 + InboxItem N개로 영속된다`() {
         val session = ingestionService.createFromManualRecords(
             listOf(manualInput(docId = "DOC-1"), manualInput(docId = "DOC-2")),
         )
 
         structuringService.struct(session.id!!)
 
-        val items = inboxItemRepository.findByIngestionIdOrderByIdAsc(session.id!!)
+        val inbox = inboxRepository.findByIngestionId(session.id!!)!!
+        assertEquals(session.id, inbox.ingestionId)
+
+        val items = inboxItemRepository.findByInboxIdOrderByIdAsc(inbox.id!!)
         assertEquals(2, items.size)
 
         val item = items.first()
+        assertEquals(inbox.id, item.inboxId)
         assertEquals("DOC-1", item.observed.docId)
         assertEquals("DOC-1", item.current.docId) // 편집본 = observed 복사
-        assertEquals(session.id, item.ingestionId)
         assertEquals(InboxItemStatus.NEW, item.status)
         // flags jsonb 왕복: 두 레코드는 중복이라 2번째(DOC-2)에 duplicate 플래그
         assertEquals(setOf(AnomalyRuleBasedFlag.DUPLICATE_SUSPECTED), items[1].flags)

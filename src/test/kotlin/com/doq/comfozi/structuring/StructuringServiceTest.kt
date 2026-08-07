@@ -21,16 +21,18 @@ class StructuringServiceTest(
 ) {
 
     @Test
-    fun `struct는 세션 레코드마다 StructuredRecord를 발행한다`(events: ApplicationEvents) {
+    fun `struct는 세션 구조화 완료본을 StructuredRecords 배치로 발행한다`(events: ApplicationEvents) {
         val session = ingestionService.createFromManualRecords(
             listOf(manualInput("A"), manualInput("B")),
         )
 
         structuringService.struct(session.id!!) // DRAFT에서 바로 구조화
 
-        val published = events.stream(StructuredRecord::class.java).toList()
-        assertEquals(2, published.size)
-        assertEquals(setOf("A", "B"), published.mapNotNull { it.observed.docId }.toSet())
+        val published = events.stream(StructuredRecords::class.java).toList()
+        assertEquals(1, published.size) // 세션당 배치 이벤트 1개
+        val records = published.first().records
+        assertEquals(2, records.size)
+        assertEquals(setOf("A", "B"), records.mapNotNull { it.observed.docId }.toSet())
         assertEquals(IngestionStatus.STRUCTURED, ingestionRepository.findByIdOrNull(session.id!!)!!.status)
     }
 }
