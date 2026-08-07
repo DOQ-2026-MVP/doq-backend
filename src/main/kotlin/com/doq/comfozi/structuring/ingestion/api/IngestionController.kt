@@ -5,6 +5,7 @@ import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import com.doq.common.web.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.*
@@ -37,7 +38,7 @@ class IngestionController(
 
     /** 취합 파일 업로드를 **기존 세션**에 이어붙임. */
     @Operation(summary = "취합 파일 업로드를 기존 세션에 이어붙임")
-    @PostMapping("/uploads/{ingestionId}", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @PostMapping("/{ingestionId}/uploads", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @ResponseStatus(HttpStatus.CREATED)
     fun continueBatchFile(
         @PathVariable ingestionId: Long,
@@ -52,7 +53,7 @@ class IngestionController(
     @PostMapping("/records")
     @ResponseStatus(HttpStatus.CREATED)
     fun addManualRecords(
-        @RequestBody requests: List<IngestionManualRecordRequest>,
+        @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
     ): ApiResponse<IngestionMutationResponse> {
         val ingestion = service.createFromManualRecords(requests.map { it.toInput() })
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
@@ -60,13 +61,23 @@ class IngestionController(
 
     /** 수기 입력들을 **기존 세션**에 이어붙임. */
     @Operation(summary = "수기 입력들을 기존 세션에 이어붙임")
-    @PostMapping("/records/{ingestionId}")
+    @PostMapping("/{ingestionId}/records")
     @ResponseStatus(HttpStatus.CREATED)
     fun continueManualRecords(
         @PathVariable ingestionId: Long,
-        @RequestBody requests: List<IngestionManualRecordRequest>,
+        @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
     ): ApiResponse<IngestionMutationResponse> {
         val ingestion = service.continueFromManualRecords(ingestionId, requests.map { it.toInput() })
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
+    /** 세션 비우기(truncate) — 원본 행(수기·파일)·업로드·저장 파일을 모두 제거하고 세션을 DRAFT로 되돌린다(수정·재시도용). */
+    @Operation(summary = "세션 비우기 (원본 행·업로드·파일 모두 제거 후 DRAFT로 되돌림)")
+    @DeleteMapping("/{ingestionId}/records")
+    fun truncate(
+        @PathVariable ingestionId: Long,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.truncate(ingestionId)
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 

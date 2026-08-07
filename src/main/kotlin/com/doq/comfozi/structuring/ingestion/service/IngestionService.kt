@@ -23,4 +23,17 @@ interface IngestionService {
 
     /** 수기 입력들을 기존 DRAFT 세션에 이어붙인다. */
     fun continueFromManualRecords(ingestionId: Long, inputs: List<IngestionManualInput>): Ingestion
+
+    /**
+     * 구조화 실패 → [Ingestion.markFailed]. 이후 재시도 가능.
+     * 파이프라인 트랜잭션과 **독립적으로**(REQUIRES_NEW) 커밋돼, 작업이 롤백돼도 FAILED는 남는다.
+     */
+    fun markFailed(ingestionId: Long): Ingestion
+
+    /**
+     * 세션의 입력을 모두 비운다(수정·재시도용) — 원본 행(수기·파일)·업로드·저장 파일 제거 후 DRAFT로 되돌린다.
+     * 완료(STRUCTURED) 세션은 비울 수 없음. 반환값은 되돌려진(빈) 세션.
+     * (업로드 단위 삭제는 추후.)
+     */
+    fun truncate(ingestionId: Long): Ingestion
 }

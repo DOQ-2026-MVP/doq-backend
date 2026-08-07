@@ -1,5 +1,6 @@
 package com.doq.comfozi.structuring.ingestion.service
 
+import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.structuring.ingestion.support.IngestionUploadBatchFileContent
 import kotlin.test.Test
@@ -35,7 +36,7 @@ class IngestionRecordConversionTest {
 
     @Test
     fun `수기 입력을 uploadRef 없는 원본 행으로 변환한다`() {
-        val record = IngestionManualInput(docId = "MAN-1", rawItemName = "임시품목").toEntity(ingestionId = 10L)
+        val record = manualInput(docId = "MAN-1", rawItemName = "임시품목").toEntity(ingestionId = 10L)
 
         assertEquals(10L, record.ingestionId)
         assertEquals("MAN-1", record.content.values["docId"])

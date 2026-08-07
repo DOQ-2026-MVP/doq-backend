@@ -12,18 +12,29 @@ import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 /**
  * 취합 파일(BATCH_FILE) 파서 — 포맷을 분류한 뒤 CSV(Apache Commons CSV) / XLSX(Apache POI)로
- * 원문을 헤더 + 행으로 분해하기만 한다. 값 검증·정규화는 하지 않음(후속 structuring).
+ * 원문을 헤더 + 행으로 분해한다. **형식 검증**(필수 헤더 9개 존재)은 하되, 값 검증·정규화는
+ * 하지 않는다(후속 structuring). 필수 헤더가 없으면 컬럼 매핑이 불가하므로 업로드를 거부한다.
  */
 @Component
 class IngestionUploadBatchFileParser {
     /** 취합 파일 포맷. */
     private enum class BatchFileFormat { CSV, XLSX }
 
-    fun parse(fileName: String?, bytes: ByteArray): IngestionUploadBatchFileContent =
-        when (classify(fileName, bytes)) {
+    fun parse(fileName: String?, bytes: ByteArray): IngestionUploadBatchFileContent {
+        val content = when (classify(fileName, bytes)) {
             BatchFileFormat.CSV -> parseCsv(bytes)
             BatchFileFormat.XLSX -> parseXlsx(bytes)
         }
+        validateRequiredHeaders(content.header)
+        return content
+    }
+
+    /** 필수 헤더(9개)가 모두 있는지 검증 — 없으면 매핑 불가라 업로드 거부(400). */
+    private fun validateRequiredHeaders(header: List<String>) {
+        val present = header.mapTo(HashSet(), BatchFileColumn::normalize)
+        val missing = BatchFileColumn.entries.filterNot { it.normalized in present }
+        require(missing.isEmpty()) { "필수 헤더 누락: ${missing.joinToString(", ") { it.label }}" }
+    }
 
     /** 매직 바이트(XLSX=zip `PK`) 우선, 없으면 확장자로 판별. */
     private fun classify(fileName: String?, bytes: ByteArray): BatchFileFormat {

@@ -12,6 +12,7 @@ import com.doq.comfozi.structuring.ingestion.support.IngestionUploadBatchFilePar
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -43,8 +44,35 @@ class IngestionServiceImpl(
     override fun continueFromManualRecords(ingestionId: Long, inputs: List<IngestionManualInput>): Ingestion =
         ingestManual(inputs = inputs, ingestionId = ingestionId)
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    override fun markFailed(ingestionId: Long): Ingestion {
+        val ingestion = ingestionRepository.findByIdOrNull(ingestionId)
+            ?: throw NoSuchElementException("알 수 없는 Ingestion 세션 $ingestionId")
+
+        ingestion.markFailed()
+        return ingestion
+    }
+
+    @Transactional
+    override fun truncate(ingestionId: Long): Ingestion {
+        val session = ingestionRepository.findByIdOrNull(ingestionId)
+            ?: throw NoSuchElementException("알 수 없는 Ingestion 세션 $ingestionId")
+
+        check(session.status != IngestionStatus.STRUCTURED) {
+            "완료된(STRUCTURED) 세션은 비울 수 없음"
+        }
+
+        val uploads = uploadRepository.findByIngestionId(ingestionId)
+        uploads.forEach { fileStorage.delete(it.storageKey) } // 저장 원본 정리
+        uploadRepository.deleteAll(uploads)
+        recordRepository.deleteByIngestionId(ingestionId) // 수기·파일 행 모두
+        session.reopen() // 입력 비움 → 재검증 필요, DRAFT로
+        return session
+    }
+
     private fun ingestBatchFile(input: IngestionBatchFileInput, ingestionId: Long? = null): Ingestion {
         val bytes = input.content.readBytes() // 저장·파싱 두 번 쓰므로 버퍼링
+        val parsed = batchFileParser.parse(input.fileName, bytes) // 형식·필수헤더 검증 먼저 — 실패 시 부작용 없이 400
         val ingestion = resolveDraftSession(ingestionId)
 
         val stored = fileStorage.store(bytes.inputStream())
@@ -59,13 +87,14 @@ class IngestionServiceImpl(
             ),
         )
 
-        val parsed = batchFileParser.parse(input.fileName, bytes)
         val saved = recordRepository.saveAll(parsed.toEntities(ingestion.id, upload.id!!))
         eventPublisher.publishEvent(IngestionRecordsAppended(ingestion.id, saved))
         return ingestion
     }
 
     private fun ingestManual(inputs: List<IngestionManualInput>, ingestionId: Long? = null): Ingestion {
+        require(inputs.isNotEmpty()) { "수기 입력이 비어 있습니다" }
+
         val ingestion = resolveDraftSession(ingestionId)
         val saved = recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
         eventPublisher.publishEvent(IngestionRecordsAppended(ingestion.id!!, saved))

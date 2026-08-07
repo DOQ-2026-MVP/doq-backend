@@ -1,6 +1,6 @@
 package com.doq.comfozi.structuring.ingestion.api
 
-import com.doq.comfozi.structuring.ingestion.service.IngestionManualInput
+import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -23,7 +23,7 @@ class IngestionReadControllerTest(
     @Test
     fun `GET 세션은 세션과 원본 행들을 반환한다`() {
         val id = service.createFromManualRecords(
-            listOf(IngestionManualInput(docId = "MAN-9", rawItemName = "임시")),
+            listOf(manualInput(docId = "MAN-9", rawItemName = "임시")),
         ).id!!
 
         mockMvc.perform(get("/api/ingestion/$id"))

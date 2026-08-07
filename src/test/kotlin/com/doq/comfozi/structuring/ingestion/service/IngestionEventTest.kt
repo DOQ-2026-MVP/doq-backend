@@ -1,5 +1,6 @@
 package com.doq.comfozi.structuring.ingestion.service
 
+import com.doq.comfozi.structuring.ingestion.manualInput
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.TestPropertySource
@@ -19,7 +20,7 @@ class IngestionEventTest(
     @Test
     fun `수기 입력 시 IngestionRecordsAppended가 발행된다`(events: ApplicationEvents) {
         val session = service.createFromManualRecords(
-            listOf(IngestionManualInput(docId = "E-1", rawItemName = "임시")),
+            listOf(manualInput(docId = "E-1", rawItemName = "임시")),
         )
 
         val published = events.stream(IngestionRecordsAppended::class.java).toList()
