@@ -58,24 +58,22 @@ class StructuringServiceImpl(
     private fun normalize(observed: List<MappedRecord>): List<MappedRecord> =
         observed.onEach { it.normalizedItemName = itemNameNormalizer.normalize(it.rawItemName) }
 
-    /** 발행 — 레코드별 구조화 결과를 인계한다 (inspection이 받아 영속). */
+    /** 발행 — 세션 구조화 완료본을 배치 이벤트 1개로 인계한다 (inspection이 Inbox+항목으로 영속). */
     private fun publish(
         ingestionId: Long,
         records: List<IngestionRecord>,
         observed: List<MappedRecord>,
         flags: List<Set<AnomalyRuleBasedFlag>>,
     ) {
-        records.forEachIndexed { i, record ->
-            eventPublisher.publishEvent(
-                StructuredRecord(
-                    ingestionId = ingestionId,
-                    recordId = requireNotNull(record.id),
-                    uploadType = record.uploadRef?.uploadType,
-                    rowNo = record.uploadRef?.rowNo,
-                    observed = observed[i],
-                    flags = flags[i],
-                ),
+        val items = records.mapIndexed { i, record ->
+            StructuredRecord(
+                recordId = requireNotNull(record.id),
+                uploadType = record.uploadRef?.uploadType,
+                rowNo = record.uploadRef?.rowNo,
+                observed = observed[i],
+                flags = flags[i],
             )
         }
+        eventPublisher.publishEvent(StructuredRecords(ingestionId, items))
     }
 }
