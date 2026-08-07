@@ -2,7 +2,7 @@ package com.doq.comfozi.structuring.api
 
 import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
-import com.doq.comfozi.structuring.ingestion.service.IngestionManualInput
+import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -26,7 +26,7 @@ class StructuringControllerTest(
 ) {
 
     private fun draftWithRecords(): Long =
-        service.createFromManualRecords(listOf(IngestionManualInput(docId = "A", rawItemName = "가"))).id!!
+        service.createFromManualRecords(listOf(manualInput(docId = "A"))).id!!
 
     @Test
     fun `POST structuring {id} - DRAFT 세션 구조화 + 200 + STRUCTURED 전이`() {

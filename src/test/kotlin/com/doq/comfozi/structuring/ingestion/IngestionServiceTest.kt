@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.TestPropertySource
 import java.io.ByteArrayOutputStream
+import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -64,9 +65,9 @@ class IngestionServiceTest(
                     rawItemName = "임시품목",
                     spec = "1kg/PK",
                     unit = "PK",
-                    priceBefore = "1000",
-                    priceAfter = "1100",
-                    effectiveDate = "2026-08-05",
+                    priceBefore = 1000,
+                    priceAfter = 1100,
+                    effectiveDate = LocalDate.of(2026, 8, 5),
                 ),
             ),
         )

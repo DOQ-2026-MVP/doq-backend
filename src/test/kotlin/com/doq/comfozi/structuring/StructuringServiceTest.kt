@@ -1,8 +1,8 @@
 package com.doq.comfozi.structuring
 
 import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
+import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
-import com.doq.comfozi.structuring.ingestion.service.IngestionManualInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -23,10 +23,7 @@ class StructuringServiceTest(
     @Test
     fun `struct는 세션 레코드마다 StructuredRecord를 발행한다`(events: ApplicationEvents) {
         val session = ingestionService.createFromManualRecords(
-            listOf(
-                IngestionManualInput(docId = "A", rawItemName = "가"),
-                IngestionManualInput(docId = "B", rawItemName = "나"),
-            ),
+            listOf(manualInput("A"), manualInput("B")),
         )
 
         structuringService.struct(session.id!!) // DRAFT에서 바로 구조화

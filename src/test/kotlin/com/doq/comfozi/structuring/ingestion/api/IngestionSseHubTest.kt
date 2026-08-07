@@ -1,6 +1,6 @@
 package com.doq.comfozi.structuring.ingestion.api
 
-import com.doq.comfozi.structuring.ingestion.service.IngestionManualInput
+import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionReadService
 import com.doq.comfozi.structuring.ingestion.service.IngestionRecordsAppended
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
@@ -28,7 +28,7 @@ class IngestionSseHubTest(
     @Test
     fun `구독자에게 추가된 행이 record 이벤트로 전송된다`() {
         val session = service.createFromManualRecords(
-            listOf(IngestionManualInput(docId = "OBS-1", rawItemName = "임시")),
+            listOf(manualInput(docId = "OBS-1", rawItemName = "임시")),
         )
         val records = readService.getRecords(session.id!!)
         val emitter = RecordingSseEmitter()

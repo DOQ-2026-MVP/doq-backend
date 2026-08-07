@@ -93,6 +93,8 @@ class IngestionServiceImpl(
     }
 
     private fun ingestManual(inputs: List<IngestionManualInput>, ingestionId: Long? = null): Ingestion {
+        require(inputs.isNotEmpty()) { "수기 입력이 비어 있습니다" }
+
         val ingestion = resolveDraftSession(ingestionId)
         val saved = recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
         eventPublisher.publishEvent(IngestionRecordsAppended(ingestion.id!!, saved))

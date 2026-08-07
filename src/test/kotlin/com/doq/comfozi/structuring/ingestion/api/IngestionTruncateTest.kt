@@ -4,7 +4,7 @@ import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepositor
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
-import com.doq.comfozi.structuring.ingestion.service.IngestionManualInput
+import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -39,7 +39,7 @@ class IngestionTruncateTest(
         val session = service.createFromBatchFile(
             IngestionBatchFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
         )
-        service.continueFromManualRecords(session.id!!, listOf(IngestionManualInput(docId = "MAN-1", rawItemName = "수기품목")))
+        service.continueFromManualRecords(session.id!!, listOf(manualInput(docId = "MAN-1", rawItemName = "수기품목")))
         return session.id!!
     }
 

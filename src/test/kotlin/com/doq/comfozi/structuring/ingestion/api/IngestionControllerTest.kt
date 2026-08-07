@@ -39,6 +39,10 @@ class IngestionControllerTest(
         DOC-001,PDF,가온푸드,토마토살사S/O,4kg/PK,PK,32000,33600
     """.trimIndent()
 
+    // 검증 통과하는 전 필드 수기 레코드 (단가=숫자, 적용일=yyyy-MM-dd)
+    private val validManualRecord =
+        """{"docId":"MAN-1","sourceType":"수기","supplier":"직접입력","rawItemName":"임시품목","spec":"1kg/PK","unit":"PK","priceBefore":1000,"priceAfter":1100,"effectiveDate":"2026-08-05"}"""
+
     @Test
     fun `POST uploads - 필수 헤더 누락 파일이면 400 + fail envelope`() {
         val bad = MockMultipartFile("file", "bad.csv", "text/csv", csvMissingHeader.toByteArray())
@@ -70,7 +74,7 @@ class IngestionControllerTest(
         mockMvc.perform(
             post("/api/ingestion/records")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""[{"docId":"MAN-1","rawItemName":"임시품목","unit":"PK"}]"""),
+                .content("[$validManualRecord]"),
         )
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.success").value(true))
@@ -84,10 +88,50 @@ class IngestionControllerTest(
         mockMvc.perform(
             post("/api/ingestion/$id/records")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""[{"docId":"MAN-2","rawItemName":"임시품목2"}]"""),
+                .content("[$validManualRecord]"),
         )
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.data.ingestionId").value(id))
+    }
+
+    @Test
+    fun `POST records - 잘못된 단가 형식이면 400`() {
+        mockMvc.perform(
+            post("/api/ingestion/records")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""[{"docId":"X","priceBefore":"abc"}]"""),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
+    }
+
+    @Test
+    fun `POST records - 잘못된 적용일 형식이면 400`() {
+        mockMvc.perform(
+            post("/api/ingestion/records")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""[{"docId":"X","effectiveDate":"2026-13-99"}]"""),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
+    }
+
+    @Test
+    fun `POST records - 빈 리스트면 400`() {
+        mockMvc.perform(
+            post("/api/ingestion/records").contentType(MediaType.APPLICATION_JSON).content("[]"),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
+    }
+
+    @Test
+    fun `POST records - 전 필드 공백 레코드면 400`() {
+        mockMvc.perform(
+            post("/api/ingestion/records").contentType(MediaType.APPLICATION_JSON).content("[{}]"),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
     }
 
     @Test
@@ -95,7 +139,7 @@ class IngestionControllerTest(
         mockMvc.perform(
             post("/api/ingestion/999999/records")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""[{"docId":"X"}]"""),
+                .content("[$validManualRecord]"),
         )
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.success").value(false))
@@ -108,7 +152,7 @@ class IngestionControllerTest(
         mockMvc.perform(
             post("/api/ingestion/$id/records")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""[{"docId":"X"}]"""),
+                .content("[$validManualRecord]"),
         )
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.error.code").value("CONFLICT"))

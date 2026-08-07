@@ -3,6 +3,7 @@ package com.doq.comfozi.structuring.mapping
 import com.doq.comfozi.structuring.ingestion.domain.IngestionContent
 import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
+import com.doq.common.config.AppObjectMapper
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -10,7 +11,7 @@ import kotlin.test.assertTrue
 
 class ManualRecordMapperTest {
 
-    private val mapper = ManualRecordMapper()
+    private val mapper = ManualRecordMapper(AppObjectMapper.instance)
 
     @Test
     fun `수기 출처(uploadRef 없음)를 담당한다`() {

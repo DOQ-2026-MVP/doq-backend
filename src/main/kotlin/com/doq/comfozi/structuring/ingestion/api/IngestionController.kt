@@ -5,6 +5,7 @@ import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import com.doq.common.web.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.*
@@ -52,7 +53,7 @@ class IngestionController(
     @PostMapping("/records")
     @ResponseStatus(HttpStatus.CREATED)
     fun addManualRecords(
-        @RequestBody requests: List<IngestionManualRecordRequest>,
+        @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
     ): ApiResponse<IngestionMutationResponse> {
         val ingestion = service.createFromManualRecords(requests.map { it.toInput() })
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
@@ -64,7 +65,7 @@ class IngestionController(
     @ResponseStatus(HttpStatus.CREATED)
     fun continueManualRecords(
         @PathVariable ingestionId: Long,
-        @RequestBody requests: List<IngestionManualRecordRequest>,
+        @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
     ): ApiResponse<IngestionMutationResponse> {
         val ingestion = service.continueFromManualRecords(ingestionId, requests.map { it.toInput() })
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
