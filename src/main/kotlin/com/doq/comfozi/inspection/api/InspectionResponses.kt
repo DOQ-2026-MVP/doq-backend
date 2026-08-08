@@ -1,6 +1,9 @@
 package com.doq.comfozi.inspection.api
 
+import com.doq.comfozi.inspection.domain.FieldChange
 import com.doq.comfozi.inspection.domain.Inspection
+import com.doq.comfozi.inspection.domain.InspectionChangeLog
+import com.doq.comfozi.inspection.domain.InspectionChangeType
 import com.doq.comfozi.inspection.domain.InspectionRecord
 import com.doq.comfozi.inspection.domain.InspectionRecordStatus
 import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag
@@ -32,6 +35,29 @@ data class InspectionBulkConfirmResponse(
     val confirmedCount: Int,
     val blockedCount: Int,
 )
+
+/** 검수 변경 이력 1건 — 편집/전이의 시각·상태·메모와 변경분(diff). */
+data class InspectionChangeLogResponse(
+    val id: Long,
+    val recordId: Long,
+    val type: InspectionChangeType,
+    val fromStatus: InspectionRecordStatus?,
+    val toStatus: InspectionRecordStatus?,
+    val memo: String?,
+    val changes: List<FieldChange>,
+    val createdAt: LocalDateTime,
+) {
+    constructor(log: InspectionChangeLog) : this(
+        id = requireNotNull(log.id),
+        recordId = log.recordId,
+        type = log.type,
+        fromStatus = log.fromStatus,
+        toStatus = log.toStatus,
+        memo = log.memo,
+        changes = log.changes,
+        createdAt = log.createdAt,
+    )
+}
 
 /** 검수 레코드 — 관찰값(observed)과 편집본(current)을 함께 노출. */
 data class InspectionRecordResponse(

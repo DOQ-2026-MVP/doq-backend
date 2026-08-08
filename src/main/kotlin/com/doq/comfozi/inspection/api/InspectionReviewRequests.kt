@@ -2,6 +2,11 @@ package com.doq.comfozi.inspection.api
 
 import com.doq.comfozi.structuring.mapping.MappedRecord
 
+/** 확정/반려 요청 — 선택적 메모(사유)를 싣는다. 본문 없이 호출해도 된다. */
+data class InspectionActionRequest(
+    val memo: String? = null,
+)
+
 /**
  * 검수 레코드 편집 요청 — 편집본([MappedRecord]) 전체를 교체한다(관찰값 observed는 불변).
  *
