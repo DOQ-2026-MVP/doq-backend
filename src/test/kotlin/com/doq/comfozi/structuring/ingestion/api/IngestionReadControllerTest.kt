@@ -5,11 +5,9 @@ import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.request
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import kotlin.test.Test
 
@@ -38,19 +36,5 @@ class IngestionReadControllerTest(
         mockMvc.perform(get("/api/ingestion/999999"))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
-    }
-
-    @Test
-    fun `SSE 라이브 스트림 구독은 async로 열린다`() {
-        val id = service.createSession().id!!
-
-        mockMvc.perform(get("/api/ingestion/$id/records/stream").accept(MediaType.TEXT_EVENT_STREAM))
-            .andExpect(request().asyncStarted())
-    }
-
-    @Test
-    fun `SSE 없는 세션은 404`() {
-        mockMvc.perform(get("/api/ingestion/999999/records/stream"))
-            .andExpect(status().isNotFound)
     }
 }

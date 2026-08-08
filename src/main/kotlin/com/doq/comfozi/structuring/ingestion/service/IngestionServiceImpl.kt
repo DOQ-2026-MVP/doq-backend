@@ -9,7 +9,6 @@ import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.structuring.ingestion.support.FileStorage
 import com.doq.comfozi.structuring.ingestion.support.IngestionUploadBatchFileParser
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
@@ -22,7 +21,6 @@ class IngestionServiceImpl(
     private val recordRepository: IngestionRecordRepository,
     private val fileStorage: FileStorage,
     private val batchFileParser: IngestionUploadBatchFileParser,
-    private val eventPublisher: ApplicationEventPublisher,
 ) : IngestionService {
 
     @Transactional
@@ -87,8 +85,7 @@ class IngestionServiceImpl(
             ),
         )
 
-        val saved = recordRepository.saveAll(parsed.toEntities(ingestion.id, upload.id!!))
-        eventPublisher.publishEvent(IngestionRecordsAppended(ingestion.id, saved))
+        recordRepository.saveAll(parsed.toEntities(ingestion.id, upload.id!!))
         return ingestion
     }
 
@@ -96,8 +93,7 @@ class IngestionServiceImpl(
         require(inputs.isNotEmpty()) { "수기 입력이 비어 있습니다" }
 
         val ingestion = resolveDraftSession(ingestionId)
-        val saved = recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
-        eventPublisher.publishEvent(IngestionRecordsAppended(ingestion.id!!, saved))
+        recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
         return ingestion
     }
 
