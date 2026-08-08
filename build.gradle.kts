@@ -24,8 +24,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     // JPA (PostgreSQL)
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    // MongoDB
-    implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
     // Validation
     implementation("org.springframework.boot:spring-boot-starter-validation")
     // Flyway (schema migration for PostgreSQL)

@@ -15,22 +15,5 @@ services:
       timeout: 5s
       retries: 10
 
-  mongo:
-    image: mongo:7
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: doq
-      MONGO_INITDB_ROOT_PASSWORD: doq
-      MONGO_INITDB_DATABASE: doq
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
 volumes:
   postgres-data:
-  mongo-data:
