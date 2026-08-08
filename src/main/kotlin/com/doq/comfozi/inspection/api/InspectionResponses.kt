@@ -23,6 +23,12 @@ data class InspectionResponse(
     )
 }
 
+/** 일괄 확정 결과 — 이번 호출로 확정(NEW→CONFIRMED)된 레코드 건수. */
+data class InspectionBulkConfirmResponse(
+    val inspectionId: Long,
+    val confirmedCount: Int,
+)
+
 /** 검수 레코드 — 관찰값(observed)과 편집본(current)을 함께 노출. */
 data class InspectionRecordResponse(
     val id: Long,

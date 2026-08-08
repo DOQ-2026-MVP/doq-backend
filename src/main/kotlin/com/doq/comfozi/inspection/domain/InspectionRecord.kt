@@ -62,4 +62,22 @@ class InspectionRecord(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
+
+    /** 편집본([current]) 교체 — 검수자가 관찰값을 교정한다. 확정된 레코드는 잠겨 있어 편집 불가(먼저 반려해야 함). */
+    fun edit(values: MappedRecord) {
+        check(status != InspectionRecordStatus.CONFIRMED) {
+            "확정된(CONFIRMED) 레코드는 편집할 수 없습니다 — 먼저 반려(REJECT)하세요"
+        }
+        current = values
+    }
+
+    /** 확정 — 검수 완료. NEW/REJECTED에서 전이하며, 이미 CONFIRMED면 멱등(무변화). */
+    fun confirm() {
+        status = InspectionRecordStatus.CONFIRMED
+    }
+
+    /** 반려 — 다시 손봐야 함. 확정된 레코드의 편집 잠금을 푸는 경로이기도 하다(멱등). */
+    fun reject() {
+        status = InspectionRecordStatus.REJECTED
+    }
 }
