@@ -8,7 +8,6 @@ create table inspection_changelog (
     type          varchar(255)  not null check (type in ('EDIT', 'CONFIRM', 'REJECT')),
     from_status   varchar(255)  check (from_status in ('NEW', 'CONFIRMED', 'REJECTED')),
     to_status     varchar(255)  check (to_status in ('NEW', 'CONFIRMED', 'REJECTED')),
-    memo          varchar(1000),
     changes       jsonb         not null,
     created_at    timestamp(6)  not null,
     constraint fk_inspection_changelog_record foreign key (record_id) references inspection_record (id)

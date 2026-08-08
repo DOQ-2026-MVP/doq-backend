@@ -35,11 +35,11 @@ class InspectionReviewServiceImpl(
 
     @Transactional
     override fun confirm(recordId: Long, memo: String?): InspectionRecord =
-        transition(recordId, InspectionChangeType.CONFIRM, memo) { it.confirm() }
+        transition(recordId, InspectionChangeType.CONFIRM) { it.confirm(memo) }
 
     @Transactional
     override fun reject(recordId: Long, memo: String?): InspectionRecord =
-        transition(recordId, InspectionChangeType.REJECT, memo) { it.reject() }
+        transition(recordId, InspectionChangeType.REJECT) { it.reject(memo) }
 
     @Transactional
     override fun confirmAll(inspectionId: Long): BulkConfirmResult {
@@ -51,23 +51,22 @@ class InspectionReviewServiceImpl(
         val (confirmable, blocked) = pending.partition { !it.hasMissingRequired() } // 필수값 누락은 승인 차단
         confirmable.forEach { record ->
             val from = record.status
-            record.confirm()
-            changeLogRepository.save(InspectionChangeLog.transitioned(record, InspectionChangeType.CONFIRM, from, null))
+            record.confirm() // 일괄 확정 — 메모 없음
+            changeLogRepository.save(InspectionChangeLog.transitioned(record, InspectionChangeType.CONFIRM, from))
         }
         return BulkConfirmResult(confirmedCount = confirmable.size, blockedCount = blocked.size)
     }
 
-    /** 상태 전이 공통 — 이전 상태 캡처 → [apply] 전이 → 이력 기록. */
+    /** 상태 전이 공통 — 이전 상태 캡처 → [apply] 전이(메모는 도메인이 세팅) → 이력 기록. */
     private fun transition(
         recordId: Long,
         type: InspectionChangeType,
-        memo: String?,
         apply: (InspectionRecord) -> Unit,
     ): InspectionRecord {
         val record = record(recordId)
         val from = record.status
         apply(record)
-        changeLogRepository.save(InspectionChangeLog.transitioned(record, type, from, memo))
+        changeLogRepository.save(InspectionChangeLog.transitioned(record, type, from))
         return record
     }
 

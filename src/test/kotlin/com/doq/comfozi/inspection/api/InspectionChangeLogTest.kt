@@ -74,11 +74,15 @@ class InspectionChangeLogTest(
     fun `확정하면 메모와 상태 전이가 이력에 남는다`() {
         val recordId = firstRecordId(structured())
 
+        // 메모는 레코드에 남고(응답에 노출), 이력에는 상태 전이만 남는다
         mockMvc.perform(
             post("/api/inspection/records/$recordId/confirm")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"memo":"검토 완료"}"""),
-        ).andExpect(status().isOk)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.status").value("CONFIRMED"))
+            .andExpect(jsonPath("$.data.memo").value("검토 완료")) // 메모는 레코드에
 
         mockMvc.perform(get("/api/inspection/records/$recordId/changelog"))
             .andExpect(status().isOk)
@@ -86,24 +90,25 @@ class InspectionChangeLogTest(
             .andExpect(jsonPath("$.data[0].type").value("CONFIRM"))
             .andExpect(jsonPath("$.data[0].fromStatus").value("NEW"))
             .andExpect(jsonPath("$.data[0].toStatus").value("CONFIRMED"))
-            .andExpect(jsonPath("$.data[0].memo").value("검토 완료"))
     }
 
     @Test
-    fun `반려하면 REJECT 이력이 남는다`() {
+    fun `반려하면 사유는 레코드에, REJECT 이력이 남는다`() {
         val recordId = firstRecordId(structured())
 
         mockMvc.perform(
             post("/api/inspection/records/$recordId/reject")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"memo":"규격 재확인 필요"}"""),
-        ).andExpect(status().isOk)
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.status").value("REJECTED"))
+            .andExpect(jsonPath("$.data.memo").value("규격 재확인 필요")) // 메모는 레코드에
 
         mockMvc.perform(get("/api/inspection/records/$recordId/changelog"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data[0].type").value("REJECT"))
             .andExpect(jsonPath("$.data[0].toStatus").value("REJECTED"))
-            .andExpect(jsonPath("$.data[0].memo").value("규격 재확인 필요"))
     }
 
     @Test
@@ -137,10 +142,9 @@ class InspectionChangeLogTest(
     fun `본문 없이 확정하면 메모는 null`() {
         val recordId = firstRecordId(structured())
 
-        mockMvc.perform(post("/api/inspection/records/$recordId/confirm")).andExpect(status().isOk)
-
-        mockMvc.perform(get("/api/inspection/records/$recordId/changelog"))
-            .andExpect(jsonPath("$.data[0].memo").value(nullValue()))
+        mockMvc.perform(post("/api/inspection/records/$recordId/confirm"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.memo").value(nullValue()))
     }
 
     @Test

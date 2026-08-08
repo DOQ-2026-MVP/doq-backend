@@ -43,7 +43,6 @@ data class InspectionChangeLogResponse(
     val type: InspectionChangeType,
     val fromStatus: InspectionRecordStatus?,
     val toStatus: InspectionRecordStatus?,
-    val memo: String?,
     val changes: List<FieldChange>,
     val createdAt: LocalDateTime,
 ) {
@@ -53,7 +52,6 @@ data class InspectionChangeLogResponse(
         type = log.type,
         fromStatus = log.fromStatus,
         toStatus = log.toStatus,
-        memo = log.memo,
         changes = log.changes,
         createdAt = log.createdAt,
     )
@@ -66,6 +64,7 @@ data class InspectionRecordResponse(
     val uploadType: IngestionUploadType?,
     val rowNo: Int?,
     val status: InspectionRecordStatus,
+    val memo: String?,
     val flags: Set<AnomalyRuleBasedFlag>,
     val observed: MappedRecord,
     val current: MappedRecord,
@@ -76,6 +75,7 @@ data class InspectionRecordResponse(
         uploadType = record.uploadType,
         rowNo = record.rowNo,
         status = record.status,
+        memo = record.memo,
         flags = record.flags,
         observed = record.observed,
         current = record.current,
