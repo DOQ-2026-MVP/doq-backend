@@ -1,6 +1,7 @@
 package com.doq.comfozi.inspection.api
 
 import com.doq.comfozi.inspection.domain.Inspection
+import com.doq.comfozi.inspection.repository.InspectionChangeLogRepository
 import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.common.web.ApiResponse
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController
 class InspectionReadController(
     private val inspectionRepository: InspectionRepository,
     private val inspectionRecordRepository: InspectionRecordRepository,
+    private val inspectionChangeLogRepository: InspectionChangeLogRepository,
 ) {
 
     /** 인입 세션(ingestionId)의 검수 상세 + 레코드. 없으면 404. */
@@ -44,6 +46,20 @@ class InspectionReadController(
         val inspection = inspectionRepository.findByIdOrNull(inspectionId)
             ?: throw NoSuchElementException("알 수 없는 Inspection $inspectionId")
         return ApiResponse.ok(detail(inspection))
+    }
+
+    /** 레코드(recordId)의 변경 이력 — 편집·확정·반려를 시각순으로. 레코드 없으면 404. */
+    @Operation(summary = "검수 레코드 변경 이력 조회")
+    @GetMapping("/records/{recordId}/changelog")
+    fun changelog(
+        @PathVariable recordId: Long,
+    ): ApiResponse<List<InspectionChangeLogResponse>> {
+        if (!inspectionRecordRepository.existsById(recordId)) {
+            throw NoSuchElementException("알 수 없는 검수 레코드 $recordId")
+        }
+        val logs = inspectionChangeLogRepository.findByRecordIdOrderByIdAsc(recordId)
+            .map(::InspectionChangeLogResponse)
+        return ApiResponse.ok(logs)
     }
 
     private fun detail(inspection: Inspection): InspectionResponse {

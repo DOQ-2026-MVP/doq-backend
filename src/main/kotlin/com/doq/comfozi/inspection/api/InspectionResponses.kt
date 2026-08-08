@@ -1,6 +1,9 @@
 package com.doq.comfozi.inspection.api
 
+import com.doq.comfozi.inspection.domain.FieldChange
 import com.doq.comfozi.inspection.domain.Inspection
+import com.doq.comfozi.inspection.domain.InspectionChangeLog
+import com.doq.comfozi.inspection.domain.InspectionChangeType
 import com.doq.comfozi.inspection.domain.InspectionRecord
 import com.doq.comfozi.inspection.domain.InspectionRecordStatus
 import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag
@@ -33,6 +36,27 @@ data class InspectionBulkConfirmResponse(
     val blockedCount: Int,
 )
 
+/** 검수 변경 이력 1건 — 편집/전이의 시각·상태·메모와 변경분(diff). */
+data class InspectionChangeLogResponse(
+    val id: Long,
+    val recordId: Long,
+    val type: InspectionChangeType,
+    val fromStatus: InspectionRecordStatus?,
+    val toStatus: InspectionRecordStatus?,
+    val changes: List<FieldChange>,
+    val createdAt: LocalDateTime,
+) {
+    constructor(log: InspectionChangeLog) : this(
+        id = requireNotNull(log.id),
+        recordId = log.recordId,
+        type = log.type,
+        fromStatus = log.fromStatus,
+        toStatus = log.toStatus,
+        changes = log.changes,
+        createdAt = log.createdAt,
+    )
+}
+
 /** 검수 레코드 — 관찰값(observed)과 편집본(current)을 함께 노출. */
 data class InspectionRecordResponse(
     val id: Long,
@@ -40,6 +64,7 @@ data class InspectionRecordResponse(
     val uploadType: IngestionUploadType?,
     val rowNo: Int?,
     val status: InspectionRecordStatus,
+    val memo: String?,
     val flags: Set<AnomalyRuleBasedFlag>,
     val observed: MappedRecord,
     val current: MappedRecord,
@@ -50,6 +75,7 @@ data class InspectionRecordResponse(
         uploadType = record.uploadType,
         rowNo = record.rowNo,
         status = record.status,
+        memo = record.memo,
         flags = record.flags,
         observed = record.observed,
         current = record.current,
