@@ -10,15 +10,15 @@ ComfoziAI 구매 증빙 인박스의 **앞단 2단계** 백엔드. XLSX/CSV·수
 ## 요구 사항
 
 - JDK 21 이상 (미설치 시 Gradle toolchain 이 foojay 로 자동 다운로드)
-- Docker / Docker Compose (로컬 PostgreSQL·MongoDB 자동 실행에 사용)
+- Docker / Docker Compose (로컬 PostgreSQL 자동 실행에 사용)
 
 ## 실행 (자동 런칭)
 
 ```bash
-./gradlew bootRun     # compose.yaml 의 postgres·mongo 를 띄우고 앱 실행
+./gradlew bootRun     # compose.yaml 의 postgres 를 띄우고 앱 실행
 ```
 
-- `spring-boot-docker-compose` 로 `compose.yaml` 의 **PostgreSQL·MongoDB 컨테이너가 자동 기동**되고
+- `spring-boot-docker-compose` 로 `compose.yaml` 의 **PostgreSQL 컨테이너가 자동 기동**되고
   접속 정보가 앱에 주입됩니다. 별도 DB 설치·환경변수 불필요.
 - 컨테이너가 `healthy` 가 될 때까지 대기 후 부팅하며, 앱 종료 시 컨테이너도 함께 종료됩니다.
 - 스키마는 **Flyway** 마이그레이션(`db/migration`)으로 적용됩니다 (`ddl-auto: validate`).
@@ -53,7 +53,6 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 | POST | `/{ingestionId}/records` | 수기 입력 이어붙임 |
 | DELETE | `/{ingestionId}/records` | 세션 비우기(truncate → DRAFT 복귀) |
 | GET | `/{ingestionId}` | 세션·원본 행 조회 |
-| GET | `/{ingestionId}/records/stream` (SSE) | 원본 행 적재 실시간 스트림 |
 
 ### 구조화 (`/api/structuring`)
 | Method | Path | 설명 |
@@ -177,8 +176,7 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 - 제공 20건을 벗어난 임의 입력 포맷 일반화.
 
 ### 알려진 제약 · 주의
-- **MongoDB 는 provision 만 되어 있고 현재 미사용** — 업로드 원본 파일은 로컬 파일시스템(`./data/uploads`,
-  `STORAGE_LOCAL_ROOT`)에 저장한다.
+- 업로드 원본 파일은 로컬 파일시스템(`./data/uploads`, `STORAGE_LOCAL_ROOT`)에 저장한다.
 - `reviewed_at` 은 서버 로컬 시각을 `+09:00` 로 표기한다(서버 TZ 를 KST 로 가정).
 - export 의 `file_name` 통합 테스트는 CSV 경로 기준(XLSX 도 동일 로직이나 별도 업로드 통합 테스트 없음).
 - 인증·권한 없음(요구사항: 회원/권한 불필요). 비밀값·실데이터는 사용하지 않는다.
@@ -188,7 +186,6 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 | 서비스     | 값                                                     |
 | ---------- | ------------------------------------------------------ |
 | PostgreSQL | `localhost:5432` / db `doq` / user `doq` / pw `doq`    |
-| MongoDB    | `localhost:27017` / db `doq` / user `doq` / pw `doq`   |
 
 Docker Compose 없이 외부 DB 로 실행 시 환경변수로 오버라이드:
 
@@ -196,7 +193,6 @@ Docker Compose 없이 외부 DB 로 실행 시 환경변수로 오버라이드:
 |---|---|
 | `DB_URL` | `jdbc:postgresql://localhost:5432/doq` |
 | `DB_USERNAME` / `DB_PASSWORD` | `doq` / `doq` |
-| `MONGODB_URI` | `mongodb://doq:doq@localhost:27017/doq?authSource=admin` |
 | `STORAGE_LOCAL_ROOT` | `./data/uploads` |
 
 ## 기술 스택
@@ -208,7 +204,6 @@ Docker Compose 없이 외부 DB 로 실행 시 환경변수로 오버라이드:
 | Framework | Spring Boot 3.5.x (Web MVC) |
 | Build | Gradle 9.4 (Kotlin DSL) |
 | RDB | PostgreSQL 16 + Spring Data JPA + Flyway |
-| NoSQL | MongoDB 7 (provision only, 미사용) |
 | 파일 파싱 | Apache Commons CSV · Apache POI (XLSX) |
 | API 문서 | springdoc OpenAPI (Swagger UI) |
 | Test DB | H2 (in-memory) |
