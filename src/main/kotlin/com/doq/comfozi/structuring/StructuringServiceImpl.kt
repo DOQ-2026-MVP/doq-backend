@@ -58,7 +58,7 @@ class StructuringServiceImpl(
     private fun normalize(observed: List<MappedRecord>): List<MappedRecord> =
         observed.onEach { it.normalizedItemName = itemNameNormalizer.normalize(it.rawItemName) }
 
-    /** 발행 — 세션 구조화 완료본을 배치 이벤트 1개로 인계한다 (inspection이 Inbox+항목으로 영속). */
+    /** 발행 — 세션 구조화 완료본을 배치 이벤트 1개로 인계한다 (inspection이 Inspection+레코드로 영속). */
     private fun publish(
         ingestionId: Long,
         records: List<IngestionRecord>,

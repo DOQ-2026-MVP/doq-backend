@@ -1,4 +1,4 @@
-package com.doq.comfozi.inspection.inbox.domain
+package com.doq.comfozi.inspection.domain
 
 import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
@@ -16,18 +16,18 @@ import org.hibernate.type.SqlTypes
 import java.time.LocalDateTime
 
 /**
- * 검수 인박스 항목 (Postgres) — structuring이 넘긴 구조화 결과 1건을 사람이 검수·수정한다.
+ * 검수 레코드 (Postgres) — structuring이 넘긴 구조화 결과 1건을 사람이 검수·수정한다.
  *
- * [Inbox]([inboxId])에 소속된 항목. 원본 근거는 [recordId]·[uploadType]·[rowNo]로 추적.
+ * [Inspection]([inspectionId])에 소속된 레코드. 원본 근거는 [recordId]·[uploadType]·[rowNo]로 추적.
  * - [observed] : 시스템 관찰값(매핑·정규화 결과) — **불변 스냅샷**
  * - [current]  : 검수자가 고치는 **편집본** (초기엔 observed 복사)
  * - [flags]    : detection 이상 플래그(그대로 실어 표시)
  */
 @Entity
-@Table(name = "inbox_item")
-class InboxItem(
-    @Column(name = "inbox_id", nullable = false, updatable = false)
-    val inboxId: Long,
+@Table(name = "inspection_record")
+class InspectionRecord(
+    @Column(name = "inspection_id", nullable = false, updatable = false)
+    val inspectionId: Long,
 
     @Column(nullable = false, updatable = false)
     val recordId: Long,
@@ -54,7 +54,7 @@ class InboxItem(
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    var status: InboxItemStatus = InboxItemStatus.NEW,
+    var status: InspectionRecordStatus = InspectionRecordStatus.NEW,
 
     @Column(nullable = false, updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
