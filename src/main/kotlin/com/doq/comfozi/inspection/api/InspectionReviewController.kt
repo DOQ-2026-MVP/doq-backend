@@ -48,11 +48,19 @@ class InspectionReviewController(
     ): ApiResponse<InspectionRecordResponse> =
         ApiResponse.ok(InspectionRecordResponse(service.reject(recordId)))
 
-    /** 검수 단위 일괄 확정 — 남은 NEW 레코드 전체를 확정한다. */
-    @Operation(summary = "검수 일괄 확정 (남은 NEW 레코드 전체)")
+    /** 검수 단위 일괄 확정 — 남은 NEW 레코드 전체를 확정한다(필수값 누락은 건너뜀). */
+    @Operation(summary = "검수 일괄 확정 (남은 NEW 레코드 전체, 필수값 누락은 건너뜀)")
     @PostMapping("/{inspectionId}/confirm")
     fun confirmAll(
         @PathVariable inspectionId: Long,
-    ): ApiResponse<InspectionBulkConfirmResponse> =
-        ApiResponse.ok(InspectionBulkConfirmResponse(inspectionId, service.confirmAll(inspectionId)))
+    ): ApiResponse<InspectionBulkConfirmResponse> {
+        val result = service.confirmAll(inspectionId)
+        return ApiResponse.ok(
+            InspectionBulkConfirmResponse(
+                inspectionId = inspectionId,
+                confirmedCount = result.confirmedCount,
+                blockedCount = result.blockedCount,
+            ),
+        )
+    }
 }

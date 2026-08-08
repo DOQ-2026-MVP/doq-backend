@@ -102,10 +102,49 @@ class InspectionReviewControllerTest(
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.inspectionId").value(inspectionId))
             .andExpect(jsonPath("$.data.confirmedCount").value(1))
+            .andExpect(jsonPath("$.data.blockedCount").value(0))
 
         val after = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
         assertEquals(InspectionRecordStatus.REJECTED, after[0].status)
         assertEquals(InspectionRecordStatus.CONFIRMED, after[1].status)
+    }
+
+    @Test
+    fun `POST record confirm - 필수값 누락이면 409 (승인 차단)`() {
+        val recordId = firstRecordId(structured())
+        // 편집으로 필수값을 비운다(전체 교체 — 대부분 필드 null)
+        mockMvc.perform(
+            patch("/api/inspection/records/$recordId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"rawItemName":"품목만"}"""),
+        ).andExpect(status().isOk)
+
+        mockMvc.perform(post("/api/inspection/records/$recordId/confirm"))
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.error.code").value("CONFLICT"))
+
+        assertEquals(InspectionRecordStatus.NEW, recordRepository.findById(recordId).get().status)
+    }
+
+    @Test
+    fun `POST inspection confirm - 필수값 누락 레코드는 건너뛴다`() {
+        val inspectionId = structured()
+        val records = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
+        // records[1] 필수값 누락으로 만들기 → 일괄 확정 시 차단(건너뜀)
+        mockMvc.perform(
+            patch("/api/inspection/records/${records[1].id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"rawItemName":"품목만"}"""),
+        ).andExpect(status().isOk)
+
+        mockMvc.perform(post("/api/inspection/$inspectionId/confirm"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.confirmedCount").value(1))
+            .andExpect(jsonPath("$.data.blockedCount").value(1))
+
+        val after = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
+        assertEquals(InspectionRecordStatus.CONFIRMED, after[0].status)
+        assertEquals(InspectionRecordStatus.NEW, after[1].status) // 차단되어 그대로
     }
 
     @Test

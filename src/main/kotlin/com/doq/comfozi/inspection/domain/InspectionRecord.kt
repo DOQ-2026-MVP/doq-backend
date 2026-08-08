@@ -71,8 +71,18 @@ class InspectionRecord(
         current = values
     }
 
-    /** 확정 — 검수 완료. NEW/REJECTED에서 전이하며, 이미 CONFIRMED면 멱등(무변화). */
+    /** 편집본([current])에 필수값 공란이 남아 있는지 — 승인 차단 판단용(요구사항 §6). */
+    fun hasMissingRequired(): Boolean =
+        current.requiredValues().any { it.isNullOrBlank() }
+
+    /**
+     * 확정 — 검수 완료. NEW/REJECTED에서 전이하며, 이미 CONFIRMED면 멱등(무변화).
+     * 필수값이 누락된 레코드는 확정할 수 없다(먼저 값을 채워야 함).
+     */
     fun confirm() {
+        check(!hasMissingRequired()) {
+            "필수값이 누락되어 확정할 수 없습니다 — 먼저 누락 필드를 채우세요"
+        }
         status = InspectionRecordStatus.CONFIRMED
     }
 

@@ -23,10 +23,14 @@ data class InspectionResponse(
     )
 }
 
-/** 일괄 확정 결과 — 이번 호출로 확정(NEW→CONFIRMED)된 레코드 건수. */
+/**
+ * 일괄 확정 결과 — 이번 호출로 확정(NEW→CONFIRMED)된 건수와, 필수값 누락으로 확정하지 못하고
+ * 건너뛴(blocked) 건수.
+ */
 data class InspectionBulkConfirmResponse(
     val inspectionId: Long,
     val confirmedCount: Int,
+    val blockedCount: Int,
 )
 
 /** 검수 레코드 — 관찰값(observed)과 편집본(current)을 함께 노출. */

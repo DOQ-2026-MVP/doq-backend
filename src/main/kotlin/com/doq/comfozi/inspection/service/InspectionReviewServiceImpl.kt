@@ -32,14 +32,15 @@ class InspectionReviewServiceImpl(
         record(recordId).apply { reject() }
 
     @Transactional
-    override fun confirmAll(inspectionId: Long): Int {
+    override fun confirmAll(inspectionId: Long): BulkConfirmResult {
         if (!inspectionRepository.existsById(inspectionId)) {
             throw NoSuchElementException("알 수 없는 Inspection $inspectionId")
         }
         val pending = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
             .filter { it.status == InspectionRecordStatus.NEW }
-        pending.forEach { it.confirm() }
-        return pending.size
+        val (confirmable, blocked) = pending.partition { !it.hasMissingRequired() } // 필수값 누락은 승인 차단
+        confirmable.forEach { it.confirm() }
+        return BulkConfirmResult(confirmedCount = confirmable.size, blockedCount = blocked.size)
     }
 
     private fun record(recordId: Long): InspectionRecord =
