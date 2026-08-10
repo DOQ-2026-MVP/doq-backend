@@ -57,6 +57,12 @@ sealed class AnomalyRule(val flag: AnomalyRuleBasedFlag) {
     companion object {
         /** 적용 목록 — detector가 조합. */
         val ALL: List<AnomalyRule> = listOf(RequiredKeys, SpecChangePattern, StandardUnits, DuplicateKey)
+
+        /** per-record 규칙만 — 편집본 1건 재평가용. 중복은 cross-record(세션 전체 필요)라 제외. */
+        val PER_RECORD: List<AnomalyRule> = listOf(RequiredKeys, SpecChangePattern, StandardUnits)
+
+        /** per-record 규칙이 산출하는 플래그 — 재평가 시 이 플래그들만 교체(나머지=cross-record는 유지). */
+        val PER_RECORD_FLAGS: Set<AnomalyRuleBasedFlag> = PER_RECORD.mapTo(LinkedHashSet()) { it.flag }
     }
 }
 

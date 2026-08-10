@@ -2,6 +2,10 @@ package com.doq.comfozi.inspection.api
 
 import com.doq.comfozi.inspection.domain.InspectionRecordStatus
 import com.doq.comfozi.inspection.repository.InspectionRecordRepository
+import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag.DUPLICATE_SUSPECTED
+import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag.MISSING_REQUIRED
+import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag.SPEC_MISMATCH
+import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag.UNIT_MISMATCH
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.structuring.StructuringService
 import com.doq.comfozi.structuring.ingestion.manualInput
@@ -55,6 +59,80 @@ class InspectionReviewControllerTest(
             .andExpect(jsonPath("$.data.observed.docId").value("DOC-1")) // 관찰값은 불변
 
         assertEquals("교정공급사", recordRepository.findById(recordId).get().current.supplier)
+    }
+
+    @Test
+    fun `PATCH record - 편집으로 이상 해소 시 per-record 플래그 제거`() {
+        // 규격+단위 불일치 레코드
+        val session = ingestionService.createFromManualRecords(
+            listOf(manualInput(docId = "DOC-X", spec = "기존 1kg / 변경 4단", unit = "KG/단")),
+        )
+        structuringService.struct(session.id!!)
+        val inspectionId = inspectionRepository.findByIngestionId(session.id!!)!!.id!!
+        val record = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId).first()
+        assertEquals(setOf(SPEC_MISMATCH, UNIT_MISMATCH), record.flags) // 초기: 둘 다
+
+        // 단위만 표준값으로 교정(규격은 그대로) → 단위 불일치만 해소
+        mockMvc.perform(
+            patch("/api/inspection/records/${record.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """{"docId":"DOC-X","sourceType":"수기","supplier":"직접입력","rawItemName":"임시품목",
+                       "spec":"기존 1kg / 변경 4단","unit":"EA","priceBefore":"1000","priceAfter":"1100",
+                       "effectiveDate":"2026-08-05","normalizedItemName":"임시품목"}""",
+                ),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.flags.length()").value(1))
+            .andExpect(jsonPath("$.data.flags[0]").value("SPEC_MISMATCH"))
+
+        assertEquals(setOf(SPEC_MISMATCH), recordRepository.findById(record.id!!).get().flags)
+    }
+
+    @Test
+    fun `PATCH record - 필수값 비우면 missing_required 추가, 다시 채우면 제거`() {
+        val recordId = firstRecordId(structured())
+
+        // 전체 교체로 대부분 필드를 비운다 → 필수값 누락
+        mockMvc.perform(
+            patch("/api/inspection/records/$recordId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"rawItemName":"품목만"}"""),
+        ).andExpect(status().isOk)
+        assertEquals(setOf(MISSING_REQUIRED), recordRepository.findById(recordId).get().flags)
+
+        // 온전한 값으로 다시 채움 → 플래그 사라짐
+        mockMvc.perform(
+            patch("/api/inspection/records/$recordId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """{"docId":"DOC-1","sourceType":"수기","supplier":"직접입력","rawItemName":"임시품목",
+                       "spec":"1kg/PK","unit":"PK","priceBefore":"1000","priceAfter":"1100",
+                       "effectiveDate":"2026-08-05"}""",
+                ),
+        ).andExpect(status().isOk)
+        assertEquals(emptySet(), recordRepository.findById(recordId).get().flags)
+    }
+
+    @Test
+    fun `PATCH record - 재평가해도 중복 의심(cross-record)은 유지된다`() {
+        // structured()의 DOC-1·DOC-2는 중복키가 같아 DOC-2가 중복 의심
+        val inspectionId = structured()
+        val dup = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
+            .first { DUPLICATE_SUSPECTED in it.flags }
+
+        // per-record 이상(비표준 단위)을 유발하는 편집 → 단위 불일치 추가, 중복은 유지
+        mockMvc.perform(
+            patch("/api/inspection/records/${dup.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """{"docId":"DOC-2","sourceType":"수기","supplier":"직접입력","rawItemName":"임시품목",
+                       "spec":"1kg/PK","unit":"KG/단","priceBefore":"1000","priceAfter":"1100",
+                       "effectiveDate":"2026-08-05"}""",
+                ),
+        ).andExpect(status().isOk)
+
+        assertEquals(setOf(UNIT_MISMATCH, DUPLICATE_SUSPECTED), recordRepository.findById(dup.id!!).get().flags)
     }
 
     @Test

@@ -11,4 +11,10 @@ interface AnomalyDetector {
 
     /** 세션 관찰값 리스트(입력 순서) → 레코드별 플래그(입력 순서 유지). */
     fun detect(observed: List<MappedRecord>): List<Set<AnomalyRuleBasedFlag>>
+
+    /**
+     * 편집본 1건 재평가 — per-record 규칙(누락·규격·단위)만 적용해 플래그를 산출한다.
+     * 검수자가 값을 고친 뒤 플래그를 갱신하는 용도. 중복(cross-record)은 세션 전체가 필요해 다루지 않는다.
+     */
+    fun detectPerRecord(record: MappedRecord): Set<AnomalyRuleBasedFlag>
 }
