@@ -8,6 +8,7 @@ import com.doq.comfozi.inspection.domain.diffFields
 import com.doq.comfozi.inspection.repository.InspectionChangeLogRepository
 import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
+import com.doq.comfozi.structuring.detection.AnomalyDetector
 import com.doq.comfozi.structuring.mapping.MappedRecord
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -22,6 +23,7 @@ class InspectionReviewServiceImpl(
     private val inspectionRepository: InspectionRepository,
     private val recordRepository: InspectionRecordRepository,
     private val changeLogRepository: InspectionChangeLogRepository,
+    private val anomalyDetector: AnomalyDetector,
 ) : InspectionReviewService {
 
     @Transactional
@@ -29,8 +31,23 @@ class InspectionReviewServiceImpl(
         val record = record(recordId)
         val changes = diffFields(record.current, values) // 이전 편집본 대비 변경분만
         record.edit(values)
+        record.reevaluatePerRecordFlags(anomalyDetector.detectPerRecord(record.current)) // 편집본 기준 재평가(per-record)
+        reevaluateDuplicates(record.inspectionId) // 편집이 형제의 중복 여부까지 바꾸므로 세션 전체 재평가(cross-record)
         changeLogRepository.save(InspectionChangeLog.edited(record, changes))
         return record
+    }
+
+    /**
+     * 세션 전체 중복 재평가 — 형제 레코드들의 현재값으로 중복 그룹을 다시 판정해 DUPLICATE_SUSPECTED를
+     * add/clear한다. 확정(CONFIRMED) 레코드는 매칭 후보로는 포함하되(현재값 참여) 플래그는 바꾸지 않는다.
+     */
+    private fun reevaluateDuplicates(inspectionId: Long) {
+        val siblings = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
+        val duplicates = anomalyDetector.detectDuplicates(siblings.map { it.current })
+        siblings.forEachIndexed { i, sibling ->
+            if (sibling.status == InspectionRecordStatus.CONFIRMED) return@forEachIndexed // 변경 금지
+            sibling.applyDuplicateSuspected(i in duplicates)
+        }
     }
 
     @Transactional

@@ -56,6 +56,24 @@ class AnomalyRuleBasedDetectorTest {
     }
 
     @Test
+    fun `detectPerRecord - per-record 3종만 산출하고 중복은 다루지 않는다`() {
+        assertEquals(emptySet(), detector.detectPerRecord(observed())) // 정상
+        assertEquals(
+            setOf(AnomalyRuleBasedFlag.SPEC_MISMATCH, AnomalyRuleBasedFlag.UNIT_MISMATCH),
+            detector.detectPerRecord(observed(spec = "기존 1kg / 변경 4단", unit = "KG/단")),
+        )
+        assertTrue(AnomalyRuleBasedFlag.MISSING_REQUIRED in detector.detectPerRecord(observed(effectiveDate = "")))
+    }
+
+    @Test
+    fun `detectDuplicates - 중복키 일치 그룹의 2번째 이후 인덱스, 키 다르면 없음`() {
+        val a = observed(docId = "DOC-018") // 입력상 먼저지만 docId가 큼
+        val b = observed(docId = "DOC-017") // 기준(더 작은 docId)
+        assertEquals(setOf(0), detector.detectDuplicates(listOf(a, b))) // DOC-018(index 0)이 중복
+        assertEquals(emptySet(), detector.detectDuplicates(listOf(a, b.copy(supplier = "다른공급사"))))
+    }
+
+    @Test
     fun `중복키 일치 시 docId 오름차순 그룹의 2번째 이후만 중복 의심`() {
         val a = observed(docId = "DOC-018") // 입력 순서상 먼저지만 docId가 큼
         val b = observed(docId = "DOC-017") // 기준(더 작은 docId)

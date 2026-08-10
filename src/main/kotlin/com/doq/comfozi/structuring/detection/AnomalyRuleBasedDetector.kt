@@ -20,4 +20,14 @@ class AnomalyRuleBasedDetector : AnomalyDetector {
         }
         return perRecord
     }
+
+    override fun detectPerRecord(record: MappedRecord): Set<AnomalyRuleBasedFlag> {
+        val single = listOf(record)
+        return AnomalyRule.PER_RECORD
+            .filter { it.detect(single).isNotEmpty() }
+            .mapTo(mutableSetOf()) { it.flag }
+    }
+
+    override fun detectDuplicates(records: List<MappedRecord>): Set<Int> =
+        AnomalyRule.DuplicateKey.detect(records)
 }
