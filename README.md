@@ -163,12 +163,23 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 
 ### 지원 (범위 IN)
 - XLSX/CSV 업로드 + 수기 등록, 원본 행 근거(파일명·행번호)
+- **PDF 원본 직접 업로드**(`POST /api/ingestion/pdf`) — LLM(Claude)로 항목 추출 → FILE 경로 인입. 추가 요건.
 - 구조화(매핑·사전 정규화·예외 4종 탐지), 검수 인박스 영속·조회
 - 사람 편집·확정·반려·일괄확정, 필수값 누락 시 승인 차단, 변경 이력·메모
 - 승인 항목 JSON+CSV export (수기·파일 두 경로)
 
+### PDF 추출 (추가 요건 — LLM 기반)
+- `POST /api/ingestion/pdf` (multipart `file`). PDF를 base64 document로 Claude(`claude-opus-4-8`)에 보내
+  캐노니컬 9필드 항목들을 추출 → 새 세션에 FILE 레코드로 적재. 한 PDF에서 여러 항목이 나오면 같은 파일명을
+  공유하고 항목 순번(`source_ref.row_no`, 1-base)으로 구분한다.
+- **활성 조건**: 환경변수 `ANTHROPIC_API_KEY` 필요(없으면 추출기 빈이 없어 PDF 업로드만 409 "미구성"; 앱 부팅·다른 경로는 정상).
+  모델·토큰은 `ANTHROPIC_MODEL`(기본 `claude-opus-4-8`)·`ANTHROPIC_MAX_TOKENS`(기본 8000)로 조정.
+- **한계**: 추출 정확도는 모델·문서 품질에 의존(원문 그대로 문자열로 받고 검증·정규화는 후속 structuring). 스캔 이미지
+  PDF도 Claude 비전으로 시도되나 품질 보장 없음. 이미지(PNG)·EML 직접 업로드는 미구현. 테스트는 추출기를 페이크로
+  대체해 API 호출 없이 흐름을 검증한다(`IngestionPdfExtractionTest`).
+
 ### 미지원 / 범위 밖
-- **PDF·이미지·EML 원본 문서 OCR** — 추가(선택) 요건, **미구현**.
+- **이미지(PNG)·EML 원본 문서 직접 업로드** — 미구현(PDF만 지원).
 - **정규화 규칙 엔진** — 사전 조회만 구현, 규칙 기반 전개(약어·꼬리 제거)는 미구현(사전 20건으로 요건 충족).
 - **검수 인박스 상태/플래그 필터·목록 조회 API** — 프론트 클라이언트 필터 처리 전제로 미제공
   (검수 상세 응답이 레코드별 상태·플래그를 모두 포함).

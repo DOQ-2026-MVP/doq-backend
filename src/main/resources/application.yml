@@ -40,3 +40,10 @@ app:
     local:
       # 업로드 원본 파일 저장 루트 (로컬 파일시스템)
       root: ${STORAGE_LOCAL_ROOT:./data/uploads}
+
+# Anthropic (PDF 원본 직접 추출 — 추가 요건)
+# 환경변수 ANTHROPIC_API_KEY가 있을 때만(relaxed binding → anthropic.api-key) 추출기가 활성화된다.
+# 여기서 api-key에 기본값을 주면 빈 값이라도 "존재"로 잡혀 오히려 켜지므로, 키는 env로만 주입한다.
+anthropic:
+  model: ${ANTHROPIC_MODEL:claude-opus-4-8}
+  max-tokens: ${ANTHROPIC_MAX_TOKENS:8000}

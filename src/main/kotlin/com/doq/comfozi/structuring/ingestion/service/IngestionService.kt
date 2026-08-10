@@ -15,6 +15,13 @@ interface IngestionService {
     /** 취합 파일(BATCH_FILE) 업로드로 새 세션 생성 + 원본 저장 + 원본 행 적재. */
     fun createFromBatchFile(input: IngestionBatchFileInput): Ingestion
 
+    /**
+     * PDF 원본(FILE) 업로드로 새 세션 생성 + 원본 저장 + 추출 항목 적재 (추가 요건).
+     * 한 PDF에서 여러 항목이 나오면 같은 업로드(파일명)를 공유하고 항목 순번([IngestionUploadRef.rowNo])으로 구분한다.
+     * 추출기 미구성(ANTHROPIC_API_KEY 없음)이면 예외. 추출 항목이 0건이어도 예외.
+     */
+    fun createFromPdf(input: IngestionPdfInput): Ingestion
+
     /** 수기 입력들로 새 세션 생성 + 행 적재(uploadRef=null). */
     fun createFromManualRecords(inputs: List<IngestionManualInput>): Ingestion
 

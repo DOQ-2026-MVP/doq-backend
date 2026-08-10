@@ -1,6 +1,7 @@
 package com.doq.comfozi.structuring.ingestion.api
 
 import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionPdfInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import com.doq.common.web.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
@@ -48,6 +49,17 @@ class IngestionController(
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
+    /** PDF 원본 업로드로 **새 세션** 생성 + 추출 항목 적재(추가 요건). multipart `file` 필수. 추출기 미구성이면 409. */
+    @Operation(summary = "PDF 원본 업로드로 새 세션 생성 + 추출 항목 적재 (추가 요건)")
+    @PostMapping("/pdf", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @ResponseStatus(HttpStatus.CREATED)
+    fun uploadPdf(
+        @RequestPart("file") file: MultipartFile,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.createFromPdf(file.toPdfInput())
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
     /** 수기 입력들로 **새 세션** 생성 + 행 적재(uploadRef=null). */
     @Operation(summary = "수기 입력들로 새 세션 생성 + 행 적재")
     @PostMapping("/records")
@@ -83,6 +95,12 @@ class IngestionController(
 
     private fun MultipartFile.toBatchInput() = IngestionBatchFileInput(
         fileName = originalFilename ?: "unknown",
+        contentType = contentType,
+        content = inputStream,
+    )
+
+    private fun MultipartFile.toPdfInput() = IngestionPdfInput(
+        fileName = originalFilename ?: "unknown.pdf",
         contentType = contentType,
         content = inputStream,
     )

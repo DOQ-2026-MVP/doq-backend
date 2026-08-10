@@ -12,7 +12,8 @@ import jakarta.persistence.Enumerated
  * 자체가 null이라 임베드 컬럼(upload_id/upload_type/upload_row_no)이 모두 비므로 null 허용.
  *
  * [uploadType]은 조인 없이 출처 표시가 가능하도록 의도적으로 중복 저장.
- * [rowNo]는 BATCH_FILE(취합 표 파일)에서 온 경우의 행 번호이며, FILE은 null.
+ * [rowNo]는 BATCH_FILE이면 파일 행 번호(헤더=1행), FILE이면 한 문서에서 추출한 항목의 순번(1-base)이다.
+ * 한 PDF에서 여러 항목이 나와도 같은 파일명을 공유하고 [rowNo]로 구분된다(요구사항 §원본 파일 구조).
  */
 @Embeddable
 class IngestionUploadRef(
