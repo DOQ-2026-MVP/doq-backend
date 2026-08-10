@@ -238,3 +238,9 @@ gradle-app.setting
 
 # 로컬 업로드 파일 저장소
 /data/
+
+# 발주처 요구사항 원본 (저장소에 커밋하지 않음)
+/docs/requirements/
+
+# Claude Code 개인 설정
+.claude/settings.local.json
