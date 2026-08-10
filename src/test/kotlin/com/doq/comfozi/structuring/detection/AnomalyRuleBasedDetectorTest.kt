@@ -66,6 +66,14 @@ class AnomalyRuleBasedDetectorTest {
     }
 
     @Test
+    fun `detectDuplicates - 중복키 일치 그룹의 2번째 이후 인덱스, 키 다르면 없음`() {
+        val a = observed(docId = "DOC-018") // 입력상 먼저지만 docId가 큼
+        val b = observed(docId = "DOC-017") // 기준(더 작은 docId)
+        assertEquals(setOf(0), detector.detectDuplicates(listOf(a, b))) // DOC-018(index 0)이 중복
+        assertEquals(emptySet(), detector.detectDuplicates(listOf(a, b.copy(supplier = "다른공급사"))))
+    }
+
+    @Test
     fun `중복키 일치 시 docId 오름차순 그룹의 2번째 이후만 중복 의심`() {
         val a = observed(docId = "DOC-018") // 입력 순서상 먼저지만 docId가 큼
         val b = observed(docId = "DOC-017") // 기준(더 작은 docId)

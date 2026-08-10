@@ -27,4 +27,7 @@ class AnomalyRuleBasedDetector : AnomalyDetector {
             .filter { it.detect(single).isNotEmpty() }
             .mapTo(mutableSetOf()) { it.flag }
     }
+
+    override fun detectDuplicates(records: List<MappedRecord>): Set<Int> =
+        AnomalyRule.DuplicateKey.detect(records)
 }

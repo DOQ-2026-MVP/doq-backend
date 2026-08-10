@@ -91,6 +91,18 @@ class InspectionRecord(
     }
 
     /**
+     * 중복(cross-record) 재평가 반영 — [suspected]면 DUPLICATE_SUSPECTED 추가, 아니면 제거.
+     * per-record 플래그는 보존한다. 확정된 형제 레코드는 서비스에서 제외되므로 여기 오지 않는다(변경 금지).
+     * 변화가 없으면 아무것도 하지 않아 불필요한 갱신을 피한다.
+     */
+    fun applyDuplicateSuspected(suspected: Boolean) {
+        if ((AnomalyRuleBasedFlag.DUPLICATE_SUSPECTED in flags) == suspected) return
+        val next = if (suspected) flags + AnomalyRuleBasedFlag.DUPLICATE_SUSPECTED
+        else flags - AnomalyRuleBasedFlag.DUPLICATE_SUSPECTED
+        flags = next.sortedBy { it.ordinal }.toCollection(LinkedHashSet())
+    }
+
+    /**
      * 확정 — 검수 완료. NEW/REJECTED에서 전이하며, 이미 CONFIRMED면 멱등(상태는 무변화, [memo]는 갱신).
      * 필수값이 누락된 레코드는 확정할 수 없다(먼저 값을 채워야 함).
      */

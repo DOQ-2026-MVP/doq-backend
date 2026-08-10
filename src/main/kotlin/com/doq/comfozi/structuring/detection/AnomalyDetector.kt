@@ -17,4 +17,11 @@ interface AnomalyDetector {
      * 검수자가 값을 고친 뒤 플래그를 갱신하는 용도. 중복(cross-record)은 세션 전체가 필요해 다루지 않는다.
      */
     fun detectPerRecord(record: MappedRecord): Set<AnomalyRuleBasedFlag>
+
+    /**
+     * 세션 단위 중복 재평가 — 편집으로 바뀐 [records](입력 순서)의 현재값으로 중복 그룹을 다시 판정한다.
+     * 한 레코드 편집이 형제의 중복 여부까지 바꾸므로 세션 전체를 함께 본다.
+     * @return 중복 의심에 해당하는 레코드의 (입력 순서) 인덱스 집합.
+     */
+    fun detectDuplicates(records: List<MappedRecord>): Set<Int>
 }
