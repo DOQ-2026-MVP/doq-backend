@@ -1,0 +1,13 @@
+{
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "kotlin-lsp@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(python3 .claude/skills/mvp-requirements/scripts/read_sheet.py:*)"
+    ]
+  }
+}
