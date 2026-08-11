@@ -159,6 +159,19 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 - 테스트 입력: `src/test/resources/fixtures/golden-20.csv` (제공 증빙 20건). 업로드→구조화→승인→export
   전 경로를 실제 파일로 검증한다.
 
+## 배포
+
+컨테이너 이미지 정의는 이 리포의 [`Dockerfile`](Dockerfile) 에 있고, 빌드된 이미지는
+`ghcr.io/doq-2026-mvp/doq-backend` (public) 로 게시된다. `linux/amd64`, 태그는 커밋 sha 와 `latest`.
+
+프론트·DB 까지 포함한 전체 스택을 한 번에 띄우려면
+**[doq-deploy](https://github.com/DOQ-2026-MVP/doq-deploy)** 의 compose 구성을 쓴다.
+
+- 이미지는 호스트에서 만든 jar 를 JRE 이미지에 복사만 하므로 빌드가 빠르다.
+  컨테이너 TZ 는 `Asia/Seoul` 로 고정한다(`reviewed_at` 표기 때문).
+- 운영 시 주입되는 환경변수는 아래 「접속 정보」의 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` /
+  `STORAGE_LOCAL_ROOT` 이다.
+
 ## 지원 범위 · 미지원 · 알려진 제약
 
 ### 지원 (범위 IN)
