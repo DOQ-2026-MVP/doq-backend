@@ -9,8 +9,9 @@ import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
+import com.doq.comfozi.structuring.ingestion.support.ClassifiedFile
 import com.doq.comfozi.structuring.ingestion.support.FileStorage
-import com.doq.comfozi.structuring.ingestion.support.IngestionDocumentValidator
+import com.doq.comfozi.structuring.ingestion.support.IngestionFileClassifier
 import com.doq.comfozi.structuring.ingestion.support.IngestionUploadBatchFileParser
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -25,27 +26,19 @@ class IngestionServiceImpl(
     private val recordRepository: IngestionRecordRepository,
     private val fileStorage: FileStorage,
     private val batchFileParser: IngestionUploadBatchFileParser,
-    private val documentValidator: IngestionDocumentValidator,
+    private val fileClassifier: IngestionFileClassifier,
 ) : IngestionService {
 
     @Transactional
     override fun createSession(): Ingestion = ingestionRepository.save(Ingestion()) // DRAFT
 
     @Transactional
-    override fun createFromBatchFile(input: IngestionBatchFileInput): Ingestion =
-        ingestBatchFile(input = input)
+    override fun createFromFile(input: IngestionFileInput): Ingestion =
+        ingestFile(input = input)
 
     @Transactional
-    override fun continueFromBatchFile(ingestionId: Long, input: IngestionBatchFileInput): Ingestion =
-        ingestBatchFile(input = input, ingestionId = ingestionId)
-
-    @Transactional
-    override fun createFromDocument(input: IngestionDocumentInput): Ingestion =
-        ingestDocument(input = input)
-
-    @Transactional
-    override fun continueFromDocument(ingestionId: Long, input: IngestionDocumentInput): Ingestion =
-        ingestDocument(input = input, ingestionId = ingestionId)
+    override fun continueFromFile(ingestionId: Long, input: IngestionFileInput): Ingestion =
+        ingestFile(input = input, ingestionId = ingestionId)
 
     @Transactional
     override fun createFromManualRecords(inputs: List<IngestionManualInput>): Ingestion =
@@ -101,8 +94,7 @@ class IngestionServiceImpl(
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     override fun markFailed(ingestionId: Long): Ingestion {
-        val ingestion = ingestionRepository.findByIdOrNull(ingestionId)
-            ?: throw NoSuchElementException("알 수 없는 Ingestion 세션 $ingestionId")
+        val ingestion = session(ingestionId)
 
         ingestion.markFailed()
         return ingestion
@@ -110,41 +102,34 @@ class IngestionServiceImpl(
 
     // ── 적재 ─────────────────────────────────────────────────────────────
 
-    private fun ingestBatchFile(input: IngestionBatchFileInput, ingestionId: Long? = null): Ingestion {
-        val bytes = input.content.readBytes() // 저장·파싱 두 번 쓰므로 버퍼링
-        val parsed = batchFileParser.parse(input.fileName, bytes) // 형식·필수헤더 검증 먼저 — 실패 시 부작용 없이 400
-        val ingestion = resolveDraftSession(ingestionId)
+    /**
+     * 업로드 1건 적재 — 내용으로 처리 경로를 정한다.
+     *
+     * 분류·파싱을 **세션·저장보다 먼저** 끝내 실패 시 부작용 없이 400 이 나가게 한다.
+     * 원본 증빙 문서는 행 추출이 없으므로 [IngestionRecord]를 만들지 않는다.
+     */
+    private fun ingestFile(input: IngestionFileInput, ingestionId: Long? = null): Ingestion {
+        val bytes = input.content.readBytes() // 분류·파싱·저장에 여러 번 쓰므로 버퍼링
 
+        // 부작용 전에 전부 판정한다 — 파싱 결과가 있으면 취합 표, 없으면 보관 전용 문서
+        val classified = fileClassifier.classify(bytes)
+        val parsed = when (classified) {
+            is ClassifiedFile.BatchFile -> batchFileParser.parse(bytes, classified.format)
+            is ClassifiedFile.Document -> null
+        }
+
+        val ingestion = resolveDraftSession(ingestionId)
         val upload = storeUpload(
             ingestion = ingestion,
             bytes = bytes,
-            type = IngestionUploadType.BATCH_FILE,
-            status = IngestionUploadStatus.PARSED, // 파싱을 통과해야 여기 도달
+            type = if (parsed == null) IngestionUploadType.FILE else IngestionUploadType.BATCH_FILE,
+            // 보관 전용 문서는 추출 미지원 상태로 남는다 — 수기 입력으로 보완
+            status = if (parsed == null) IngestionUploadStatus.PENDING_EXTRACTION else IngestionUploadStatus.PARSED,
             fileName = input.fileName,
             contentType = input.contentType,
         )
 
-        recordRepository.saveAll(parsed.toEntities(ingestion.id!!, upload.id!!))
-        return ingestion
-    }
-
-    /**
-     * 원본 문서는 **보관만** 한다 — 행 추출이 없으므로 [IngestionRecord]를 만들지 않는다.
-     * 취합 파일과 마찬가지로 형식 검증을 먼저 해 실패 시 부작용 없이 400.
-     */
-    private fun ingestDocument(input: IngestionDocumentInput, ingestionId: Long? = null): Ingestion {
-        val bytes = input.content.readBytes() // 저장·검증 두 번 쓰므로 버퍼링
-        documentValidator.validate(bytes)
-        val ingestion = resolveDraftSession(ingestionId)
-
-        storeUpload(
-            ingestion = ingestion,
-            bytes = bytes,
-            type = IngestionUploadType.FILE,
-            status = IngestionUploadStatus.PENDING_EXTRACTION, // 추출 미지원 — 수기 입력으로 보완
-            fileName = input.fileName,
-            contentType = input.contentType,
-        )
+        parsed?.let { recordRepository.saveAll(it.toEntities(ingestion.id!!, upload.id!!)) }
         return ingestion
     }
 

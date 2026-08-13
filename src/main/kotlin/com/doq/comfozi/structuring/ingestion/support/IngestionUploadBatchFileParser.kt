@@ -11,20 +11,26 @@ import java.io.ByteArrayInputStream
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 /**
- * 취합 파일(BATCH_FILE) 파서 — 포맷을 분류한 뒤 CSV(Apache Commons CSV) / XLSX(Apache POI)로
- * 원문을 헤더 + 행으로 분해한다. **형식 검증**(필수 헤더 9개 존재)은 하되, 값 검증·정규화는
- * 하지 않는다(후속 structuring). 필수 헤더가 없으면 컬럼 매핑이 불가하므로 업로드를 거부한다.
+ * 취합 파일(BATCH_FILE) 파서 — CSV(Apache Commons CSV) / XLSX(Apache POI)로 원문을 헤더 + 행으로
+ * 분해한다. **형식 검증**(필수 헤더 9개 존재)은 하되, 값 검증·정규화는 하지 않는다(후속 structuring).
+ * 필수 헤더가 없으면 컬럼 매핑이 불가하므로 업로드를 거부한다.
+ *
+ * 포맷 판별은 [IngestionFileClassifier] 가 이미 끝냈으므로 여기서 다시 하지 않는다.
  */
 @Component
 class IngestionUploadBatchFileParser {
-    /** 취합 파일 포맷. */
-    private enum class BatchFileFormat { CSV, XLSX }
 
-    fun parse(fileName: String?, bytes: ByteArray): IngestionUploadBatchFileContent {
-        val content = when (classify(fileName, bytes)) {
-            BatchFileFormat.CSV -> parseCsv(bytes)
-            BatchFileFormat.XLSX -> parseXlsx(bytes)
+    fun parse(bytes: ByteArray, format: BatchFileFormat): IngestionUploadBatchFileContent {
+        // zip 이지만 xlsx 가 아닌 파일(.docx 등)은 여기서 터진다 — 스택트레이스 대신 400으로 안내
+        val content = try {
+            when (format) {
+                BatchFileFormat.CSV -> parseCsv(bytes)
+                BatchFileFormat.XLSX -> parseXlsx(bytes)
+            }
+        } catch (e: Exception) {
+            throw IllegalArgumentException("${format} 파일로 읽을 수 없습니다 (지원 형식: CSV·XLSX·PDF·PNG·JPEG)", e)
         }
+
         validateRequiredHeaders(content.header)
         return content
     }
@@ -34,15 +40,6 @@ class IngestionUploadBatchFileParser {
         val present = header.mapTo(HashSet(), BatchFileColumn::normalize)
         val missing = BatchFileColumn.entries.filterNot { it.normalized in present }
         require(missing.isEmpty()) { "필수 헤더 누락: ${missing.joinToString(", ") { it.label }}" }
-    }
-
-    /** 매직 바이트(XLSX=zip `PK`) 우선, 없으면 확장자로 판별. */
-    private fun classify(fileName: String?, bytes: ByteArray): BatchFileFormat {
-        if (bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
-            return BatchFileFormat.XLSX
-        }
-        val ext = fileName?.substringAfterLast('.', "")?.lowercase()
-        return if (ext == "xlsx" || ext == "xls") BatchFileFormat.XLSX else BatchFileFormat.CSV
     }
 
     private fun parseCsv(bytes: ByteArray): IngestionUploadBatchFileContent {

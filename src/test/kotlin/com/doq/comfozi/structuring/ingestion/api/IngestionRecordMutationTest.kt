@@ -4,7 +4,7 @@ import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
 import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
-import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import com.doq.common.config.AppObjectMapper
 import org.springframework.beans.factory.annotation.Autowired
@@ -40,8 +40,8 @@ class IngestionRecordMutationTest(
 
     /** 파일 1행 + 수기 2행이 담긴 세션. */
     private fun seed(): Long {
-        val session = service.createFromBatchFile(
-            IngestionBatchFileInput("test.csv", "text/csv", csv.byteInputStream()),
+        val session = service.createFromFile(
+            IngestionFileInput("test.csv", "text/csv", csv.byteInputStream()),
         )
         val id = session.id!!
         service.continueFromManualRecords(id, listOf(manualInput(docId = "MAN-1"), manualInput(docId = "MAN-2")))

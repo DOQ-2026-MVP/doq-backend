@@ -16,20 +16,15 @@ interface IngestionService {
     /** 빈 인입 세션(DRAFT) 생성. */
     fun createSession(): Ingestion
 
-    /** 취합 파일(BATCH_FILE) 업로드로 새 세션 생성 + 원본 저장 + 원본 행 적재. */
-    fun createFromBatchFile(input: IngestionBatchFileInput): Ingestion
-
-    /** 취합 파일 업로드를 기존 DRAFT 세션에 이어붙인다. */
-    fun continueFromBatchFile(ingestionId: Long, input: IngestionBatchFileInput): Ingestion
-
     /**
-     * 원본 문서(PDF·이미지) 업로드로 새 세션 생성 + 원본 **보관**.
-     * 행 자동 추출은 미지원이라 원본 행은 만들어지지 않는다 — 수기 입력으로 보완한다.
+     * 파일 업로드로 새 세션 생성 + 원본 저장. 처리 경로는 **내용으로 판정**한다:
+     * 취합 표 파일(CSV·XLSX)이면 파싱해 원본 행까지 적재하고, 원본 증빙 문서(PDF·이미지)면
+     * 보관만 한다(행 자동 추출은 미지원 — 수기 입력으로 보완).
      */
-    fun createFromDocument(input: IngestionDocumentInput): Ingestion
+    fun createFromFile(input: IngestionFileInput): Ingestion
 
-    /** 원본 문서 업로드를 기존 DRAFT 세션에 이어붙인다(보관만). */
-    fun continueFromDocument(ingestionId: Long, input: IngestionDocumentInput): Ingestion
+    /** 파일 업로드를 기존 DRAFT 세션에 이어붙인다. 처리 경로 판정은 [createFromFile] 과 같다. */
+    fun continueFromFile(ingestionId: Long, input: IngestionFileInput): Ingestion
 
     /** 수기 입력들로 새 세션 생성 + 행 적재(uploadRef=null). */
     fun createFromManualRecords(inputs: List<IngestionManualInput>): Ingestion
