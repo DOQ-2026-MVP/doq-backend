@@ -36,7 +36,7 @@ class InspectionExportFromFileTest(
     @Test
     fun `골든 CSV 업로드 후 승인 항목 export에 파일 근거가 실린다`() {
         // 업로드 → 구조화
-        val session = ingestionService.createFromFile(
+        val session = ingestionService.ingestFile(
             IngestionFileInput(
                 fileName = "golden-20.csv",
                 contentType = "text/csv",

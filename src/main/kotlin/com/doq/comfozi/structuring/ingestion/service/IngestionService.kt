@@ -5,10 +5,10 @@ import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
 
 /**
  * 인입 서비스 — 파일/수기 입력을 세션·행으로 적재한다. (조회는 [IngestionReadService])
- * `create*`는 **새 세션**을 만들고, `continue*`는 **기존 DRAFT 세션**에 이어붙인다.
+ * 적재는 upsert 다 — `ingestionId` 가 null 이면 새 세션, 있으면 그 세션에 이어붙인다.
  * 값은 원문 그대로 저장하며 검증/정규화는 하지 않는다(후속 structuring).
  *
- * 메소드 순서: **세션 → 적재(입력 종류별 create·continue 쌍) → 수정 → 삭제 → 파이프라인 콜백**.
+ * 메소드 순서: **세션 → 적재(입력 종류별) → 수정 → 삭제 → 파이프라인 콜백**.
  * 삭제는 대상 범위가 좁은 것부터(행 → 업로드 → 세션 전체). 구현체·컨트롤러도 이 순서를 따른다.
  */
 interface IngestionService {
@@ -17,20 +17,19 @@ interface IngestionService {
     fun createSession(): Ingestion
 
     /**
-     * 파일 업로드로 새 세션 생성 + 원본 저장. 처리 경로는 **내용으로 판정**한다:
-     * 취합 표 파일(CSV·XLSX)이면 파싱해 원본 행까지 적재하고, 원본 증빙 문서(PDF·이미지)면
-     * 보관만 한다(행 자동 추출은 미지원 — 수기 입력으로 보완).
+     * 파일 업로드 적재(upsert) — [ingestionId] 가 null 이면 **새 DRAFT 세션**을 만들고,
+     * 있으면 그 세션에 이어붙인다(DRAFT 가 아니면 409).
+     *
+     * 처리 경로는 **내용으로 판정**한다: 취합 표 파일(CSV·XLSX)이면 파싱해 원본 행까지 적재하고,
+     * 원본 증빙 문서(PDF·이미지)면 보관만 한다(행 자동 추출은 미지원 — 수기 입력으로 보완).
      */
-    fun createFromFile(input: IngestionFileInput): Ingestion
+    fun ingestFile(input: IngestionFileInput, ingestionId: Long? = null): Ingestion
 
-    /** 파일 업로드를 기존 DRAFT 세션에 이어붙인다. 처리 경로 판정은 [createFromFile] 과 같다. */
-    fun continueFromFile(ingestionId: Long, input: IngestionFileInput): Ingestion
-
-    /** 수기 입력들로 새 세션 생성 + 행 적재(uploadRef=null). */
-    fun createFromManualRecords(inputs: List<IngestionManualInput>): Ingestion
-
-    /** 수기 입력들을 기존 DRAFT 세션에 이어붙인다. */
-    fun continueFromManualRecords(ingestionId: Long, inputs: List<IngestionManualInput>): Ingestion
+    /**
+     * 수기 입력 적재(upsert) — [ingestionId] 가 null 이면 새 DRAFT 세션, 있으면 그 세션에 이어붙인다.
+     * 행은 업로드 출처 없이 생성된다(uploadRef=null).
+     */
+    fun ingestManual(inputs: List<IngestionManualInput>, ingestionId: Long? = null): Ingestion
 
     /**
      * 수기 행의 원문을 교체한다(오타 정정 등). 파일 출처 행은 원본 근거라 대상이 아니며(409),

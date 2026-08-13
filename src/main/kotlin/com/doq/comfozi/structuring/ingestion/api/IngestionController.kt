@@ -42,7 +42,7 @@ class IngestionController(
     fun uploadFile(
         @RequestPart("file") file: MultipartFile,
     ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.createFromFile(file.toFileInput())
+        val ingestion = service.ingestFile(file.toFileInput())
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
@@ -54,7 +54,7 @@ class IngestionController(
         @PathVariable ingestionId: Long,
         @RequestPart("file") file: MultipartFile,
     ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.continueFromFile(ingestionId, file.toFileInput())
+        val ingestion = service.ingestFile(file.toFileInput(), ingestionId)
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
@@ -65,7 +65,7 @@ class IngestionController(
     fun addManualRecords(
         @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
     ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.createFromManualRecords(requests.map { it.toInput() })
+        val ingestion = service.ingestManual(requests.map { it.toInput() })
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
@@ -77,7 +77,7 @@ class IngestionController(
         @PathVariable ingestionId: Long,
         @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
     ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.continueFromManualRecords(ingestionId, requests.map { it.toInput() })
+        val ingestion = service.ingestManual(requests.map { it.toInput() }, ingestionId)
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 

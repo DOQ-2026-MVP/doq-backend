@@ -32,21 +32,46 @@ class IngestionServiceImpl(
     @Transactional
     override fun createSession(): Ingestion = ingestionRepository.save(Ingestion()) // DRAFT
 
+    /**
+     * 업로드 1건 적재 — 내용으로 처리 경로를 정한다.
+     *
+     * 분류·파싱을 **세션·저장보다 먼저** 끝내 실패 시 부작용 없이 400 이 나가게 한다.
+     * 원본 증빙 문서는 행 추출이 없으므로 [IngestionRecord]를 만들지 않는다.
+     */
     @Transactional
-    override fun createFromFile(input: IngestionFileInput): Ingestion =
-        ingestFile(input = input)
+    override fun ingestFile(input: IngestionFileInput, ingestionId: Long?): Ingestion {
+        val bytes = input.content.readBytes() // 분류·파싱·저장에 여러 번 쓰므로 버퍼링
+
+        // 부작용 전에 전부 판정한다 — 파싱 결과가 있으면 취합 표, 없으면 보관 전용 문서
+        val classified = fileClassifier.classify(bytes)
+        val parsed = when (classified) {
+            is ClassifiedFile.BatchFile -> batchFileParser.parse(bytes, classified.format)
+            is ClassifiedFile.Document -> null
+        }
+
+        val ingestion = resolveDraftSession(ingestionId)
+        val upload = storeUpload(
+            ingestion = ingestion,
+            bytes = bytes,
+            type = if (parsed == null) IngestionUploadType.FILE else IngestionUploadType.BATCH_FILE,
+            // 보관 전용 문서는 추출 미지원 상태로 남는다 — 수기 입력으로 보완
+            status = if (parsed == null) IngestionUploadStatus.PENDING_EXTRACTION else IngestionUploadStatus.PARSED,
+            fileName = input.fileName,
+            contentType = input.contentType,
+        )
+
+        parsed?.let { recordRepository.saveAll(it.toEntities(ingestion.id!!, upload.id!!)) }
+        return ingestion
+    }
 
     @Transactional
-    override fun continueFromFile(ingestionId: Long, input: IngestionFileInput): Ingestion =
-        ingestFile(input = input, ingestionId = ingestionId)
+    override fun ingestManual(inputs: List<IngestionManualInput>, ingestionId: Long?): Ingestion {
+        require(inputs.isNotEmpty()) { "수기 입력이 비어 있습니다" }
 
-    @Transactional
-    override fun createFromManualRecords(inputs: List<IngestionManualInput>): Ingestion =
-        ingestManual(inputs = inputs)
-
-    @Transactional
-    override fun continueFromManualRecords(ingestionId: Long, inputs: List<IngestionManualInput>): Ingestion =
-        ingestManual(inputs = inputs, ingestionId = ingestionId)
+        val ingestion = resolveDraftSession(ingestionId)
+        recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
+        return ingestion
+    }
 
     @Transactional
     override fun updateManualRecord(ingestionId: Long, recordId: Long, input: IngestionManualInput): IngestionRecord {
@@ -97,47 +122,6 @@ class IngestionServiceImpl(
         val ingestion = session(ingestionId)
 
         ingestion.markFailed()
-        return ingestion
-    }
-
-    // ── 적재 ─────────────────────────────────────────────────────────────
-
-    /**
-     * 업로드 1건 적재 — 내용으로 처리 경로를 정한다.
-     *
-     * 분류·파싱을 **세션·저장보다 먼저** 끝내 실패 시 부작용 없이 400 이 나가게 한다.
-     * 원본 증빙 문서는 행 추출이 없으므로 [IngestionRecord]를 만들지 않는다.
-     */
-    private fun ingestFile(input: IngestionFileInput, ingestionId: Long? = null): Ingestion {
-        val bytes = input.content.readBytes() // 분류·파싱·저장에 여러 번 쓰므로 버퍼링
-
-        // 부작용 전에 전부 판정한다 — 파싱 결과가 있으면 취합 표, 없으면 보관 전용 문서
-        val classified = fileClassifier.classify(bytes)
-        val parsed = when (classified) {
-            is ClassifiedFile.BatchFile -> batchFileParser.parse(bytes, classified.format)
-            is ClassifiedFile.Document -> null
-        }
-
-        val ingestion = resolveDraftSession(ingestionId)
-        val upload = storeUpload(
-            ingestion = ingestion,
-            bytes = bytes,
-            type = if (parsed == null) IngestionUploadType.FILE else IngestionUploadType.BATCH_FILE,
-            // 보관 전용 문서는 추출 미지원 상태로 남는다 — 수기 입력으로 보완
-            status = if (parsed == null) IngestionUploadStatus.PENDING_EXTRACTION else IngestionUploadStatus.PARSED,
-            fileName = input.fileName,
-            contentType = input.contentType,
-        )
-
-        parsed?.let { recordRepository.saveAll(it.toEntities(ingestion.id!!, upload.id!!)) }
-        return ingestion
-    }
-
-    private fun ingestManual(inputs: List<IngestionManualInput>, ingestionId: Long? = null): Ingestion {
-        require(inputs.isNotEmpty()) { "수기 입력이 비어 있습니다" }
-
-        val ingestion = resolveDraftSession(ingestionId)
-        recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
         return ingestion
     }
 

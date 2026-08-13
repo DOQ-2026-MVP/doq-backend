@@ -42,8 +42,8 @@ class IngestionUploadDeleteTest(
 
     private fun upload(ingestionId: Long?, fileName: String, vararg docIds: String): Long {
         val input = IngestionFileInput(fileName, "text/csv", csv(*docIds).byteInputStream())
-        val session = if (ingestionId == null) service.createFromFile(input)
-        else service.continueFromFile(ingestionId, input)
+        val session = if (ingestionId == null) service.ingestFile(input)
+        else service.ingestFile(input, ingestionId)
         return session.id!!
     }
 
@@ -51,7 +51,7 @@ class IngestionUploadDeleteTest(
     private fun seed(): Long {
         val id = upload(null, "first.csv", "DOC-001", "DOC-002")
         upload(id, "second.csv", "DOC-003")
-        service.continueFromManualRecords(id, listOf(manualInput(docId = "MAN-1")))
+        service.ingestManual(listOf(manualInput(docId = "MAN-1")), id)
         return id
     }
 
