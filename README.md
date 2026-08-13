@@ -32,7 +32,7 @@ curl -s localhost:8080/actuator/health   # {"status":"UP"}
 - **Swagger UI**: http://localhost:8080/swagger-ui.html — 전체 API 를 브라우저에서 호출해볼 수 있습니다.
 - OpenAPI 문서: http://localhost:8080/v3/api-docs
 
-## 전체 흐름 (제공 20건 기준)
+## 전체 흐름
 
 ```
 업로드/수기 입력          구조화(기계)                     검수(사람)                    전달
@@ -40,148 +40,55 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
    (원본 행 적재)         (매핑·정규화·탐지 → 인계)        (편집·확정/반려·이력)          (승인 항목만)
 ```
 
-## API 요약
+엔드포인트·요청/응답 스키마의 단일 소스는 **Swagger UI** 다 — 컨트롤러에서 자동 생성되므로
+이 문서에 API 표를 중복해 두지 않는다.
 
-베이스 응답은 `{ success, data, error }` envelope (**export 제외** — export 는 원본 파일 그대로 다운로드).
+구조화는 `StructuredRecords` 이벤트(같은 트랜잭션)로 검수 단계에 인계된다 — structuring 이 계산하고
+inspection 이 저장한다.
 
-### 인입 (`/api/ingestion`)
-| Method | Path | 설명 |
-|---|---|---|
-| POST | `/uploads` (multipart `file`) | 취합 파일(CSV/XLSX) 업로드 → 새 세션 + 원본 행 적재 |
-| POST | `/{ingestionId}/uploads` | 기존 DRAFT 세션에 파일 이어붙임 |
-| POST | `/documents` (multipart `file`) | 원본 문서(PDF/PNG/JPEG) 업로드 → 새 세션 + 원본 **보관만** |
-| POST | `/{ingestionId}/documents` | 기존 DRAFT 세션에 원본 문서 이어붙임 |
-| GET | `/{ingestionId}/uploads/{uploadId}/content` | 업로드 원본 다운로드 (envelope 없이 파일 바이트) |
-| POST | `/records` | 수기 입력들로 새 세션 |
-| POST | `/{ingestionId}/records` | 수기 입력 이어붙임 |
-| PUT | `/{ingestionId}/records/{recordId}` | 수기 행 수정 (9필드 전체 교체) |
-| DELETE | `/{ingestionId}/records/{recordId}` | 원본 행 1건 삭제 (수기·파일 무관) |
-| DELETE | `/{ingestionId}/uploads/{uploadId}` | 업로드 1건 삭제 (해당 업로드의 원본 행·저장 파일 포함) |
-| DELETE | `/{ingestionId}/records` | 세션 비우기(truncate → DRAFT 복귀) |
-| GET | `/{ingestionId}` | 세션 + 업로드 현황 + 원본 행 조회 |
+## 패키지 구조
 
-입력 변경(삭제·수정)은 **완료(STRUCTURED) 세션에서는 409** 다 — 구조화 이후의 수정은 검수(inspection) 도메인의 몫이다.
-DRAFT·FAILED 세션에서는 가능하며, 입력이 바뀌었으므로 세션은 DRAFT 로 되돌아간다.
+루트 패키지는 `com.doq`. 도메인 코드는 `com.doq.comfozi` 아래에 **파이프라인 단계별**로 나뉜다.
 
-**파일 출처 행은 수정할 수 없다(409).** 원문이 곧 원본 근거(관찰값)라 인입 단계에서 덮으면
-검수의 "관찰값 vs 수정값" 분리가 무의미해지기 때문 — 구조화 후 `PATCH /api/inspection/records/{id}` 로 고친다.
-삭제는 구조화 전이라 깨지는 불변식이 없어 출처와 무관하게 허용한다.
-
-#### 세션 조회 응답 — 입력 화면용 현황
-
-`GET /{ingestionId}` 은 `uploads`(업로드 현황)와 `records`(원본 행)를 함께 준다.
-변경 계열 응답(업로드·수기 입력)은 세션만 돌려주므로 둘 다 `null` 이다.
-
-| 필드 | 설명 |
-|---|---|
-| `uploads[].status` | `PARSED` (취합 파일 파싱 완료) · `PENDING_EXTRACTION` (원본 문서 보관, 행 추출 미지원) |
-| `uploads[].recordCount` | 그 업로드에서 나온 원본 행 수 (수기 입력은 세지 않음) |
-| `records[].uploadId` / `uploadType` / `uploadRowNo` | 원본 근거. 수기 입력이면 전부 `null` |
-
-파싱에 실패한 업로드는 애초에 저장하지 않으므로(업로드 요청이 400) `uploads` 에 나타나지 않는다.
-
-**행 단위 이상 여부는 인입 단계에서 판정하지 않는다.** 필수값 누락·규격/단위 불일치·중복은
-구조화 이후 검수 인박스에서 `exception_flags` 와 검수결과(`확인 필요`·`보류 필요`)로 표시된다.
-수기 입력은 경계에서 9필드를 검증하므로(실패 시 400) 저장된 수기 행은 항상 완전하다.
-
-취합 표 파일(`/uploads`)과 원본 문서(`/documents`)는 엔드포인트가 다르다 — 전자는 행을 만들고
-후자는 보관만 하므로, content-type 으로 암묵 분기하면 어느 쪽으로 처리됐는지 호출부가 알 수 없다.
-원본 문서는 **매직 바이트**로 판별하므로 확장자만 바꾼 파일은 400 이다. 업로드 상한은 20MB.
-
-### 구조화 (`/api/structuring`)
-| Method | Path | 설명 |
-|---|---|---|
-| POST | `/{ingestionId}` | 구조화 실행 — 매핑·정규화·탐지 후 검수 인박스로 인계 |
-
-### 검수 (`/api/inspection`)
-| Method | Path | 설명 |
-|---|---|---|
-| GET | `?ingestionId={id}` | 검수 상세(레코드 포함) — ingestionId 로 |
-| GET | `/{inspectionId}` | 검수 상세 — inspectionId 로 |
-| GET | `/records/{recordId}/changelog` | 레코드 변경 이력(시각순) |
-| PATCH | `/records/{recordId}` | 레코드 편집 — 편집본(current) 교체 (확정된 레코드면 409) |
-| POST | `/records/{recordId}/confirm` | 확정 (선택 `{"memo":"…"}`) · **필수값 누락 시 409** |
-| POST | `/records/{recordId}/reject` | 반려 (선택 `{"memo":"…"}`) |
-| POST | `/{inspectionId}/confirm` | 남은 NEW 레코드 일괄 확정(필수값 누락은 건너뜀) |
-| GET | `/{inspectionId}/export.json` | 승인 항목 JSON export |
-| GET | `/{inspectionId}/export.csv` | 승인 항목 UTF-8 CSV export |
-
-## 예외 탐지 규칙 (4종, 규칙 기반)
-
-| 플래그(`exception_flags`) | 판정 | 결과 상태 |
-|---|---|---|
-| `missing_required` | 필수 9필드 중 하나라도 공란·공백 | 확인 필요 |
-| `spec_mismatch` | 규격이 `기존 … / 변경 …` 패턴 | 보류 필요 |
-| `unit_mismatch` | 단위가 표준집합(`PK`·`BOX`·`EA`·`PO`) 밖이거나 복수 단위 병기 | 보류 필요 |
-| `duplicate_suspected` | 중복키 7필드 완전 일치, 그룹 내 2번째 이후 | 보류 필요 |
-
-- 중복키 = 공급사 + 정규화 품목명 + 규격 + 단위 + 기존단가 + 변경단가 + 적용일, `문서ID` 오름차순 정렬 기준.
-- 자동 병합·자동 승인은 하지 않는다. 사람이 편집·확정한 항목만 export 된다.
-
-## 품목명 정규화 — 사전 사용 명시
-
-원문 품목명 → 정규화 품목명 산출은 **품목 마스터 사전 조회**(제공 20건 기준) 방식이다
-(`ItemNameNormalizer`). 사전에 없으면 빈칸이 아니라 **`"데이터 부족"`** 으로 표시하고,
-검수 화면에서 사람이 교정할 수 있다. 규칙 기반 전개(약어·꼬리 제거)는 미구현이며,
-요구사항상 자동 정규화 정확도는 평가 대상이 아니다(사전 20건으로 요건 충족).
-
-## Export 스키마 (승인 항목만)
-
-승인(`CONFIRMED`)된 레코드의 **편집본(current)** 을 영문 snake_case field ID 로 내보낸다.
-승인 전·보류·반려는 제외. 승인 0건이면 빈 배열 / 헤더만 있는 CSV(200).
-
-### JSON 예시 (`GET /api/inspection/{id}/export.json`)
-
-```json
-[
-  {
-    "doc_id": "DOC-001",
-    "source_type": "PDF",
-    "supplier_name": "가온푸드(예시)",
-    "raw_item_name": "토마토살사S/O",
-    "normalized_item_name": "토마토 살사 소스",
-    "spec": "4kg/PK",
-    "unit": "PK",
-    "price_before": 32000,
-    "price_after": 33600,
-    "effective_date": "2026-08-01",
-    "review_status": "approved",
-    "exception_flags": [],
-    "source_ref": { "input_method": "file", "file_name": "golden-20.csv", "row_no": 2 },
-    "reviewed_at": "2026-08-10T14:03:00+09:00",
-    "review_memo": "",
-    "change_log": [
-      { "at": "2026-08-10T14:01:00+09:00", "field": "normalized_item_name",
-        "from": "토마토살사소스", "to": "토마토 살사 소스", "action": "edit" }
-    ]
-  }
-]
+```
+src/main/kotlin/com/doq/
+├─ BackendApplication.kt              Spring Boot 진입점
+├─ api/                               HealthController — GET /api/ping
+├─ common/
+│  ├─ config/                         Jackson·Hibernate jsonb 타입·springdoc OpenAPI 설정
+│  └─ web/                            공통 응답 envelope(ApiResponse: success/data/error)·
+│                                     에러 코드(ApiError)·전역 예외 핸들러
+└─ comfozi/
+   ├─ structuring/                    ── 기계 단계 ──
+   │  ├─ StructuringService(Impl).kt  인입 세션 1건 구조화 오케스트레이션 (매핑→정규화→탐지→이벤트 발행)
+   │  ├─ StructuredRecord(s).kt       구조화 결과 항목 / 세션 단위 결과 이벤트 (→ inspection 인계 계약)
+   │  ├─ api/                         StructuringController — POST /api/structuring/{ingestionId}
+   │  ├─ ingestion/                   인입: 파일 업로드·수기 입력 → 원본 행 적재 (매핑 이전 원문)
+   │  │  ├─ api/                      변경(IngestionController)·조회(IngestionReadController) 컨트롤러 + 요청/응답 DTO
+   │  │  ├─ domain/                   JPA 엔티티(Ingestion·IngestionUpload·IngestionRecord)·
+   │  │  │                            원문 값 홀더(IngestionContent, jsonb)·상태 enum
+   │  │  ├─ repository/               Spring Data JPA 리포지토리 3종 (IngestionRepositories.kt 한 파일)
+   │  │  ├─ service/                  IngestionService(변경)·IngestionReadService(조회) + 입력 커맨드 타입
+   │  │  └─ support/                  CSV/XLSX 파서·취합 파일 컬럼 스키마(BatchFileColumn)·
+   │  │                               원본 문서 매직바이트 검증·FileStorage 포트와 로컬 구현
+   │  ├─ mapping/                     출처별 원문 → 캐노니컬 MappedRecord
+   │  │                               (RecordMapper 전략 + Dispatcher, 수기·취합파일 구현)
+   │  ├─ normalization/               ItemNameNormalizer — 원문 품목명 → 정규화 품목명
+   │  └─ detection/                   이상 탐지 — AnomalyDetector 포트 + 규칙 기반 구현·규칙(AnomalyRule)·플래그 enum
+   └─ inspection/                     ── 사람 단계 ──
+      ├─ InspectionIntakeListener.kt  StructuredRecords 이벤트 수신 → 검수 인박스 영속(저장만)
+      ├─ api/                         조회·검수(편집/확정/반려)·export 컨트롤러 + DTO,
+      │                               export 행 스키마(ExportRow)와 CSV writer
+      ├─ domain/                      Inspection·InspectionRecord·변경 이력(InspectionChangeLog) 엔티티, 상태 enum
+      ├─ repository/                  Spring Data JPA 리포지토리 3종
+      └─ service/                     InspectionReviewService(편집·확정·반려)·InspectionExportService (+ Impl)
 ```
 
-### 필드 설명
+읽는 순서를 하나 고르자면 `StructuringServiceImpl` → `mapping`/`normalization`/`detection` →
+`InspectionIntakeListener` → `inspection/service` 가 파이프라인 순서와 같다.
 
-| field | 타입 | 설명 |
-|---|---|---|
-| `doc_id` | string | 원본 증빙 식별자 (`DOC-###`) |
-| `source_type` | string | 원본유형 (`PDF`·`XLSX`·`IMAGE`·`수기`) |
-| `supplier_name` | string | 공급사명 |
-| `raw_item_name` | string | 원문 품목명(공급사 표기 그대로) |
-| `normalized_item_name` | string | 정규화 품목명(사전 산출, 실패 시 `"데이터 부족"`) |
-| `spec` / `unit` | string | 규격 / 단위 |
-| `price_before` / `price_after` | integer | 기존/변경 단가(정수) |
-| `effective_date` | string | 적용일 (`YYYY-MM-DD`) |
-| `review_status` | enum | 검수 상태 — export 는 항상 `approved` (그 외 `new`·`rejected`) |
-| `exception_flags` | string[] | 이상 플래그 (`missing_required`·`duplicate_suspected`·`spec_mismatch`·`unit_mismatch`) |
-| `source_ref` | object | 원본 근거 — `input_method`(`file`\|`manual`) · `file_name` · `row_no` |
-| `reviewed_at` | string | 승인 시각 (ISO-8601, `+09:00`) |
-| `review_memo` | string | 검수 메모(없으면 `""`) |
-| `change_log` | object[] | 변경 이력 — `at` · `field` · `from` · `to` · `action`(`edit`\|`confirm`\|`reject`) |
-
-### CSV (`GET /api/inspection/{id}/export.csv`)
-
-- 위 필드를 **평탄화**한 UTF-8 CSV(엑셀 호환 BOM, RFC 4180 이스케이프).
-- `source_ref` → `source_input_method` · `source_file_name` · `source_row_no` 컬럼.
-- `exception_flags` → `|` 로 join. `change_log` 는 **CSV 미포함**(JSON 전용).
+리소스는 `src/main/resources/` 에 `application.yml` 과 Flyway 마이그레이션(`db/migration/V*.sql`) 이 있고,
+테스트는 `src/test/kotlin/` 아래 **동일한 패키지 구조**를 따른다.
 
 ## 빌드 & 테스트
 
@@ -192,62 +99,6 @@ DRAFT·FAILED 세션에서는 가능하며, 입력이 바뀌었으므로 세션�
 
 - 테스트 입력: `src/test/resources/fixtures/golden-20.csv` (제공 증빙 20건). 업로드→구조화→승인→export
   전 경로를 실제 파일로 검증한다.
-
-## 배포
-
-컨테이너 이미지 정의는 이 리포의 [`Dockerfile`](Dockerfile) 에 있고, 빌드된 이미지는
-`ghcr.io/doq-2026-mvp/doq-backend` (public) 로 게시된다. `linux/amd64`, 태그는 커밋 sha 와 `latest`.
-
-프론트·DB 까지 포함한 전체 스택을 한 번에 띄우려면
-**[doq-deploy](https://github.com/DOQ-2026-MVP/doq-deploy)** 의 compose 구성을 쓴다.
-
-- 이미지는 호스트에서 만든 jar 를 JRE 이미지에 복사만 하므로 빌드가 빠르다.
-  컨테이너 TZ 는 `Asia/Seoul` 로 고정한다(`reviewed_at` 표기 때문).
-- 운영 시 주입되는 환경변수는 아래 「접속 정보」의 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` /
-  `STORAGE_LOCAL_ROOT` 이다.
-
-## 지원 범위 · 미지원 · 알려진 제약
-
-### 지원 (범위 IN)
-- XLSX/CSV 업로드 + 수기 등록, 원본 행 근거(파일명·행번호)
-- PDF·이미지 원본 문서 **업로드·보관·다운로드**, 업로드 단위 삭제, 원본 행 개별 삭제·수기 행 수정
-- 입력 세션 현황 조회 — 업로드별 상태·행 수, 행별 인입 단계 검증(필수값 누락 필드명)
-- 구조화(매핑·사전 정규화·예외 4종 탐지), 검수 인박스 영속·조회
-- 사람 편집·확정·반려·일괄확정, 필수값 누락 시 승인 차단, 변경 이력·메모
-- 승인 항목 JSON+CSV export (수기·파일 두 경로)
-
-### 미지원 / 범위 밖
-- **PDF·이미지에서 행 자동 추출(OCR·LLM)** — **미구현**. 원본 업로드·보관·다운로드까지는 지원하며
-  (`POST /api/ingestion/documents`), 업로드는 `PENDING_EXTRACTION` 상태로 남고 항목은 **수기 입력으로 보완**한다.
-  추출이 붙으면 `IngestionUploadStatus` 에 값을 더하고 `RecordMapper` 에 `FILE` 구현체를 추가하는 자리다.
-- **수기 행 ↔ 업로드 문서 연결** — 원본 문서를 올려도 수기 행과 이어지지 않아 export 의
-  `source_ref.file_name` 이 비어 있다. 수기 입력에 선택적 `uploadId` 를 받으면 해결된다.
-- **EML 원본 문서** — 미구현.
-- **정규화 규칙 엔진** — 사전 조회만 구현, 규칙 기반 전개(약어·꼬리 제거)는 미구현(사전 20건으로 요건 충족).
-- **검수 인박스 상태/플래그 필터·목록 조회 API** — 프론트 클라이언트 필터 처리 전제로 미제공
-  (검수 상세 응답이 레코드별 상태·플래그를 모두 포함).
-- 가격 판정·비교·협상/RFQ, 회원/권한/인증, 실제 ComfoziAI Production 전송.
-- 제공 20건을 벗어난 임의 입력 포맷 일반화.
-
-### 알려진 제약 · 주의
-- 업로드 원본 파일은 로컬 파일시스템(`./data/uploads`, `STORAGE_LOCAL_ROOT`)에 저장한다.
-- `reviewed_at` 은 서버 로컬 시각을 `+09:00` 로 표기한다(서버 TZ 를 KST 로 가정).
-- export 의 `file_name` 통합 테스트는 CSV 경로 기준(XLSX 도 동일 로직이나 별도 업로드 통합 테스트 없음).
-- 인증·권한 없음(요구사항: 회원/권한 불필요). 비밀값·실데이터는 사용하지 않는다.
-
-## 접속 정보 (compose 기본값)
-
-| 서비스     | 값                                                     |
-| ---------- | ------------------------------------------------------ |
-| PostgreSQL | `localhost:5432` / db `doq` / user `doq` / pw `doq`    |
-
-Docker Compose 없이 외부 DB 로 실행 시 환경변수로 오버라이드:
-
-| 변수 | 기본값 |
-|---|---|
-| `DB_URL` | `jdbc:postgresql://localhost:5432/doq` |
-| `DB_USERNAME` / `DB_PASSWORD` | `doq` / `doq` |
-| `STORAGE_LOCAL_ROOT` | `./data/uploads` |
 
 ## 기술 스택
 
