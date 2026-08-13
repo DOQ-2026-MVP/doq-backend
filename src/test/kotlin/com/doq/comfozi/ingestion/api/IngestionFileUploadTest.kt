@@ -87,15 +87,21 @@ class IngestionFileUploadTest(
     }
 
     @Test
-    fun `제공된 실제 공문도 같은 경로로 처리된다`() {
+    fun `제공된 실제 공문은 LLM 없이도 항목별로 갈려 적재된다`() {
         val real = javaClass.getResourceAsStream("/fixtures/notice-gaonfood.pdf")!!.readBytes()
 
         val id = upload(file("가온푸드_단가변경공문.pdf", "application/pdf", real))
 
-        val record = recordRepository.findByIngestionIdOrderByIdAsc(id).single()
-        assertTrue(record.content.values["rawItemName"]!!.contains("할라피뇨슬라이스"))
-        assertEquals("PDF", record.content.values["sourceType"])
-        assertEquals(1, record.uploadRef?.rowNo)
+        val records = recordRepository.findByIngestionIdOrderByIdAsc(id)
+        assertEquals(3, records.size) // 한 문서에서 여러 항목
+        assertEquals(listOf(1, 2, 3), records.map { it.uploadRef?.rowNo })
+
+        val first = records.first().content.values
+        assertEquals("토마토살사S/O", first["rawItemName"])
+        assertEquals("가온푸드", first["supplier"])
+        assertEquals("33,600", first["priceAfter"])
+        assertEquals("PDF", first["sourceType"]) // 시스템 부여
+        assertTrue(first["docId"]!!.startsWith("DOC-U")) // 시스템 채번
     }
 
     @Test

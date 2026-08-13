@@ -1,7 +1,7 @@
 package com.doq.comfozi.ingestion.service
 
 import com.doq.comfozi.ingestion.extraction.ItemExtractor
-import com.doq.comfozi.ingestion.extraction.RawTextItemExtractor
+import com.doq.comfozi.ingestion.extraction.TableTextItemExtractor
 import com.doq.comfozi.ingestion.support.ClassifiedFile
 import com.doq.common.config.AsyncConfig
 import org.slf4j.LoggerFactory
@@ -44,9 +44,8 @@ class IngestionUploadStoredListener(
     /**
      * 원본 문서에서 항목을 뽑는다 — 지금은 **PDF 만** 지원한다.
      *
-     * 추출기(LLM)가 꺼져 있어도 행은 만든다 — 읽어낸 원문을 [RawTextItemExtractor] 로 한 행에 담아
-     * 필수값 누락 상태로 검수에 올린다. 파일만 덩그러니 남기는 것보다 사람이 화면에서 보완할 수
-     * 있는 편이 낫다.
+     * 추출기(LLM)가 꺼져 있어도 행은 만든다 — [TableTextItemExtractor] 가 규칙으로 표를 읽고,
+     * 그마저 실패하면 원문을 한 행에 담는다. 어느 쪽이든 관찰값이라 검수에서 확인·수정된다.
      *
      * 이미지(PNG·JPEG)는 회전·원근 왜곡이 있는 촬영본이라 전처리가 필요해 아직 읽을 텍스트조차
      * 없다 — 담을 것이 없으므로 행 없이 완료 처리한다("기계가 할 일이 없다"는 뜻이지 실패가 아니다).
@@ -61,7 +60,7 @@ class IngestionUploadStoredListener(
             return
         }
 
-        val extractor = itemExtractor.getIfAvailable() ?: RawTextItemExtractor
+        val extractor = itemExtractor.getIfAvailable() ?: TableTextItemExtractor
         parseService.extract(uploadId, extractor, sourceType = classified.format)
     }
 
