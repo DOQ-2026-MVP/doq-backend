@@ -23,6 +23,16 @@ ComfoziAI 구매 증빙 인박스의 **앞단 2단계** 백엔드. XLSX/CSV·수
 - 컨테이너가 `healthy` 가 될 때까지 대기 후 부팅하며, 앱 종료 시 컨테이너도 함께 종료됩니다.
 - 스키마는 **Flyway** 마이그레이션(`db/migration`)으로 적용됩니다 (`ddl-auto: validate`).
 
+**선택 — PDF 항목 추출** (추가 요건):
+
+```bash
+ANTHROPIC_API_KEY=... ./gradlew bootRun
+```
+
+키를 주면 업로드한 PDF 에서 증빙 항목을 뽑아 행으로 적재합니다. **키 없이도 부팅·업로드는 정상**이며,
+그때 PDF 는 보관만 되고 행은 만들어지지 않습니다(업로드 상태 `PARSED`, 행 0건). 필수 흐름
+(CSV/XLSX + 수기 입력)은 키와 무관하게 전부 동작합니다.
+
 ### 실행 확인
 
 ```bash
@@ -137,6 +147,7 @@ src/main/kotlin/com/doq/
 | Framework | Spring Boot 3.5.x (Web MVC) |
 | Build | Gradle 9.4 (Kotlin DSL) |
 | RDB | PostgreSQL 16 + Spring Data JPA + Flyway |
-| 파일 파싱 | Apache Commons CSV · Apache POI (XLSX) |
+| 파일 파싱 | Apache Commons CSV · Apache POI (XLSX) · PDFBox (PDF 텍스트) |
+| PDF 항목 추출 | Anthropic Claude (선택 — `ANTHROPIC_API_KEY` 있을 때만) |
 | API 문서 | springdoc OpenAPI (Swagger UI) |
 | Test DB | H2 (in-memory) |
