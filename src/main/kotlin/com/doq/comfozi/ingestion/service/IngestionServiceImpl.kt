@@ -119,9 +119,10 @@ class IngestionServiceImpl(
         val session = editableSession(ingestionId)
 
         val uploads = uploadRepository.findByIngestionIdOrderByIdAsc(ingestionId)
-        uploads.forEach { fileStorage.delete(it.storageKey) } // 저장 원본 정리
+
+        recordRepository.deleteByIngestionId(ingestionId) // FK(fk_record_upload) 때문에 행 먼저
         uploadRepository.deleteAll(uploads)
-        recordRepository.deleteByIngestionId(ingestionId) // 수기·파일 행 모두
+        uploads.forEach { fileStorage.delete(it.storageKey) } // 저장 원본 정리
         session.reopen() // 입력 비움 → 재검증 필요, DRAFT로
 
         publishChange(session, IngestionChange.SessionCleared)
