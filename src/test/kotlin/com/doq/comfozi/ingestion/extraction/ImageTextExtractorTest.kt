@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 /**
  * 이미지 OCR — 제공된 실제 공문 2장으로 검증한다.
@@ -53,6 +54,20 @@ class ImageTextExtractorTest {
         assertEquals(false, row.contains('|'))
         assertContains(row, "BOX 86,000 86,000 2026-08-15")
         assertContains(row, "변경 9kg") // 규격 변경 통보 형태가 살아 있다
+    }
+
+    @Test
+    fun `사진에서 뽑은 텍스트가 규칙 파서까지 통과한다`() {
+        assumeOcrInstalled()
+
+        // OCR 출력에는 괘선이 글자로 섞여 들어온다 — 그것이 표 행으로 둔갑하지 않아야 한다
+        val items = TableTextItemExtractor.extract("거래명세서.png", extractor.extract(image("notice-pureun.png")))
+
+        assertEquals(2, items.size)
+        assertEquals("500EA/BOX" to "BOX", items[0].spec to items[0].unit)
+        assertEquals("52,000" to "55,000", items[0].priceBefore to items[0].priceAfter)
+        assertEquals("2026-08-12", items[0].effectiveDate)
+        assertNull(items[1].effectiveDate) // 적용일자 공란 (DOC-016)
     }
 
     @Test

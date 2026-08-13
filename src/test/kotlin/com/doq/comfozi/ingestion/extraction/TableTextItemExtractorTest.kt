@@ -91,6 +91,20 @@ class TableTextItemExtractorTest {
     }
 
     @Test
+    fun `OCR 잡음은 표 행으로 오인하지 않는다`() {
+        // 서버 OCR 이 괘선을 글자로 읽어 뱉은 실제 줄 — 끝 칸이 선택이라 모양만은 표 행과 같다
+        val text = """
+            종이보울500 500EA/BOX BOX 52,000 55,000 2026-08-12
+            ieee 9699 [ek oe} 900 090
+        """.trimIndent()
+
+        val items = TableTextItemExtractor.extract("거래명세서.png", text)
+
+        assertEquals(1, items.size) // 단위 모양(`oe}`)·콤마 없는 단가에서 걸러진다
+        assertEquals("종이보울500", items.single().rawItemName)
+    }
+
+    @Test
     fun `표를 못 읽으면 원문을 한 행으로 내려보낸다`() {
         val items = TableTextItemExtractor.extract("메모.pdf", "표가 없는 안내문입니다.\n감사합니다.")
 
