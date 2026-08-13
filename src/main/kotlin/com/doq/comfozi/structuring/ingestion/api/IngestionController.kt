@@ -81,6 +81,17 @@ class IngestionController(
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
+    /** 업로드 1건 삭제 — 그 업로드에서 나온 행·저장 원본까지. 다른 업로드의 행과 수기 행은 남는다. */
+    @Operation(summary = "업로드 1건 삭제 (해당 업로드의 원본 행·저장 파일 포함)")
+    @DeleteMapping("/{ingestionId}/uploads/{uploadId}")
+    fun deleteUpload(
+        @PathVariable ingestionId: Long,
+        @PathVariable uploadId: Long,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.deleteUpload(ingestionId, uploadId)
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
     private fun MultipartFile.toBatchInput() = IngestionBatchFileInput(
         fileName = originalFilename ?: "unknown",
         contentType = contentType,

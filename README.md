@@ -51,8 +51,12 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 | POST | `/{ingestionId}/uploads` | 기존 DRAFT 세션에 파일 이어붙임 |
 | POST | `/records` | 수기 입력들로 새 세션 |
 | POST | `/{ingestionId}/records` | 수기 입력 이어붙임 |
+| DELETE | `/{ingestionId}/uploads/{uploadId}` | 업로드 1건 삭제 (해당 업로드의 원본 행·저장 파일 포함) |
 | DELETE | `/{ingestionId}/records` | 세션 비우기(truncate → DRAFT 복귀) |
 | GET | `/{ingestionId}` | 세션 + 업로드 현황 + 원본 행 조회 |
+
+입력 변경(삭제)은 **완료(STRUCTURED) 세션에서는 409** 다 — 구조화 이후의 수정은 검수(inspection) 도메인의 몫이다.
+DRAFT·FAILED 세션에서는 가능하며, 입력이 바뀌었으므로 세션은 DRAFT 로 되돌아간다.
 
 #### 세션 조회 응답 — 입력 화면용 현황
 
