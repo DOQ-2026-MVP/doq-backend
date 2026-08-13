@@ -70,7 +70,7 @@ class IngestionEventStreamTest(
     /** 이벤트가 실어 나르는 현황 — 변경 응답이 돌려주는 것과 같은 타입이다. */
     private fun Map<*, *>.state() = this["state"] as Map<*, *>
     private fun Map<*, *>.upload(i: Int) = (state()["uploads"] as List<*>)[i] as Map<*, *>
-    private fun Map<*, *>.manualRecords() = state()["manualRecords"] as List<*>
+    private fun Map<*, *>.manuals() = state()["manuals"] as List<*>
     private fun Map<*, *>.change() = this["change"] as Map<*, *>
 
     @Test
@@ -81,7 +81,7 @@ class IngestionEventStreamTest(
 
         assertEquals(id.toInt(), snapshot.state()["ingestionId"])
         assertEquals("DRAFT", snapshot.state()["status"])
-        assertEquals(1, snapshot.manualRecords().size)
+        assertEquals(1, snapshot.manuals().size)
         assertNull(snapshot["change"]) // 스냅샷은 계기가 없다
     }
 
@@ -110,7 +110,8 @@ class IngestionEventStreamTest(
         val id = service.createSession().id!!
         val stream = subscribe(id)
 
-        service.ingestFile(IngestionFileInput("bad.csv", "text/csv", "이름,수량\n연필,3".byteInputStream()), id)
+        val input = IngestionFileInput("bad.csv", "text/csv", "이름,수량\n연필,3".byteInputStream())
+        service.ingestFile(input, id)
         uploadRepository.awaitParsed(id)
 
         val failed = awaitStream(stream, "PARSE_FAILED").last().upload(0)
@@ -129,7 +130,7 @@ class IngestionEventStreamTest(
         val last = awaitStream(stream, "RECORDS_ADDED").last()
         assertEquals(2, last.change()["addedCount"])
 
-        val records = last.manualRecords().map { it as Map<*, *> }
+        val records = last.manuals().map { it as Map<*, *> }
         assertEquals(2, records.size)
         records.forEach {
             assertNotNull(it["id"])
@@ -145,12 +146,13 @@ class IngestionEventStreamTest(
         val id = service.createSession().id!!
         val stream = subscribe(id)
 
-        service.ingestFile(IngestionFileInput("big.csv", "text/csv", "$header\n$rows".byteInputStream()), id)
+        val input = IngestionFileInput("big.csv", "text/csv", "$header\n$rows".byteInputStream())
+        service.ingestFile(input, id)
         uploadRepository.awaitParsed(id)
 
         val last = awaitStream(stream, "UPLOAD_SETTLED").last()
         assertEquals("PARSED", last.upload(0)["status"])
-        assertEquals(emptyList<Any>(), last.manualRecords()) // 파일 행은 수기 목록에 없다
+        assertEquals(emptyList<Any>(), last.manuals()) // 파일 행은 수기 목록에 없다
         assertEquals(false, body(stream).contains("DOC-1")) // 행 원문도 없다
     }
 
@@ -165,7 +167,7 @@ class IngestionEventStreamTest(
 
         val received = awaitStream(stream, "RECORDS_ADDED")
         assertEquals(setOf(mine.toInt()), received.map { it.state()["ingestionId"] }.toSet())
-        assertEquals(1, received.last().manualRecords().size) // 남의 행이 섞이지 않았다
+        assertEquals(1, received.last().manuals().size) // 남의 행이 섞이지 않았다
     }
 
     @Test

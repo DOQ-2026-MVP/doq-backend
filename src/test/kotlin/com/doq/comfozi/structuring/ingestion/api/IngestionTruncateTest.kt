@@ -40,8 +40,11 @@ class IngestionTruncateTest(
         val session = service.ingestFile(
             IngestionFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
         )
-        service.ingestManual(listOf(manualInput(docId = "MAN-1", rawItemName = "수기품목")), session.id!!)
-        return session.id!!.also { uploadRepository.awaitParsed(it) } // 파싱은 커밋 이후 비동기
+        val id = session.id!!
+
+        service.ingestManual(listOf(manualInput(docId = "MAN-1", rawItemName = "수기품목")), id)
+        uploadRepository.awaitParsed(id) // 파싱은 커밋 이후 비동기
+        return id
     }
 
     @Test

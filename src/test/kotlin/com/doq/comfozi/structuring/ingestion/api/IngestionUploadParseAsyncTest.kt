@@ -81,8 +81,14 @@ class IngestionUploadParseAsyncTest(
         assertTrue(done.await(10, TimeUnit.SECONDS), "워커 대기열이 비워지지 않음")
     }
 
-    private fun upload(fileName: String = "test.csv") =
-        service.ingestFile(IngestionFileInput(fileName, "text/csv", csv.byteInputStream())).id!!
+    private fun upload(fileName: String = "test.csv"): Long {
+        val input = IngestionFileInput(fileName, "text/csv", csv.byteInputStream())
+
+        return service.ingestFile(input).id!!
+    }
+
+    private fun uploadStatus(ingestionId: Long) =
+        uploadRepository.findByIngestionIdOrderByIdAsc(ingestionId).single().status
 
     @Test
     fun `업로드는 파싱을 기다리지 않는다 - PARSING 으로 접수됐다가 PARSED 로 끝난다`() {
@@ -90,13 +96,13 @@ class IngestionUploadParseAsyncTest(
         val id = upload()
 
         // 워커가 붙잡혀 있으므로 접수만 된 상태 — 행은 아직 없다
-        assertEquals(IngestionUploadStatus.PARSING, uploadRepository.findByIngestionIdOrderByIdAsc(id).single().status)
+        assertEquals(IngestionUploadStatus.PARSING, uploadStatus(id))
         assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
 
         gate.countDown()
         uploadRepository.awaitParsed(id)
 
-        assertEquals(IngestionUploadStatus.PARSED, uploadRepository.findByIngestionIdOrderByIdAsc(id).single().status)
+        assertEquals(IngestionUploadStatus.PARSED, uploadStatus(id))
         assertEquals(1, recordRepository.findByIngestionIdOrderByIdAsc(id).size)
     }
 

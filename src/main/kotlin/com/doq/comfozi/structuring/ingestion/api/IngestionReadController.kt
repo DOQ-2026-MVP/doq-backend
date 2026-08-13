@@ -48,16 +48,19 @@ class IngestionReadController(
     @GetMapping("/{ingestionId}/events", produces = [EVENT_STREAM_UTF8])
     fun streamEvents(
         @PathVariable ingestionId: Long,
-    ): ResponseEntity<SseEmitter> =
-        try {
-            // charset 은 여기서 붙여야 한다 — produces 는 매핑용이고, SseEmitter 는 비어 있을 때
-            // charset 없는 text/event-stream 을 직접 세팅한다(그러면 응답이 ISO-8859-1 로 잡힌다)
-            ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(EVENT_STREAM_UTF8))
-                .body(eventStream.subscribe(ingestionId))
+    ): ResponseEntity<SseEmitter> {
+        val emitter = try {
+            eventStream.subscribe(ingestionId)
         } catch (_: NoSuchElementException) {
-            ResponseEntity.notFound().build()
+            return ResponseEntity.notFound().build()
         }
+
+        // charset 은 여기서 붙여야 한다 — produces 는 매핑용이고, SseEmitter 는 비어 있을 때
+        // charset 없는 text/event-stream 을 직접 세팅한다(그러면 응답이 ISO-8859-1 로 잡힌다)
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(EVENT_STREAM_UTF8))
+            .body(emitter)
+    }
 
     /**
      * 인입 세션 현황 조회 — 올라온 파일들과 수기 행들. 없으면 404.
@@ -67,9 +70,31 @@ class IngestionReadController(
      */
     @Operation(summary = "인입 세션 현황 조회 (업로드·수기 행)")
     @GetMapping("/{ingestionId}")
-    fun getIngestion(
+    fun getIngestionState(
         @PathVariable ingestionId: Long,
-    ): ApiResponse<IngestionState> = ApiResponse.ok(data = IngestionState(readService.getStatus(ingestionId)))
+    ): ApiResponse<IngestionState> {
+        val status = readService.getStatus(ingestionId)
+
+        return ApiResponse.ok(data = IngestionState(status))
+    }
+
+    /**
+     * 세션에 적재된 **원본 행 전부** 조회 (수기·파일) — 확인·디버깅용. 없는 세션이면 404.
+     *
+     * 현황([getIngestionState])은 화면이 쓰는 만큼만 주므로 파일에서 나온 행이 빠져 있다. 파싱이
+     * 무엇을 만들어냈는지 눈으로 봐야 할 때 여기로 본다. 한 파일이 수만 행일 수 있어 화면 경로에는
+     * 섞지 않고 별도로 둔다.
+     */
+    @Operation(summary = "세션의 원본 행 전부 조회 (수기·파일, 확인·디버깅용)")
+    @GetMapping("/{ingestionId}/records")
+    fun getRecords(
+        @PathVariable ingestionId: Long,
+    ): ApiResponse<List<IngestionRecordResponse>> {
+        readService.getSession(ingestionId) // 없는 세션이면 빈 목록 대신 404
+        val records = readService.getRecords(ingestionId)
+
+        return ApiResponse.ok(data = records.map(::IngestionRecordResponse))
+    }
 
     /**
      * 업로드 원본 다운로드 — 화면에서 PDF·이미지를 열어보고 수기 입력으로 옮기기 위한 경로.
@@ -82,14 +107,17 @@ class IngestionReadController(
         @PathVariable uploadId: Long,
     ): ResponseEntity<Resource> {
         val upload = readService.getUpload(ingestionId, uploadId)
-        val contentType = upload.contentType?.let(MediaType::parseMediaType) ?: MediaType.APPLICATION_OCTET_STREAM
+        val contentType = upload.contentType
+            ?.let(MediaType::parseMediaType)
+            ?: MediaType.APPLICATION_OCTET_STREAM
+
+        val headerValue = ContentDisposition.inline()
+            .filename(upload.fileName, StandardCharsets.UTF_8)
+            .build()
 
         return ResponseEntity.ok()
             .contentType(contentType)
-            .header(
-                HttpHeaders.CONTENT_DISPOSITION,
-                ContentDisposition.inline().filename(upload.fileName, StandardCharsets.UTF_8).build().toString(),
-            )
+            .header(HttpHeaders.CONTENT_DISPOSITION, headerValue.toString())
             .body(InputStreamResource(fileStorage.load(upload.storageKey)))
     }
 

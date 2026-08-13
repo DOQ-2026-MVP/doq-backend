@@ -75,7 +75,7 @@ class IngestionFileUploadTest(
             .andExpect(jsonPath("$.data.uploads[0].type").value("FILE"))
             .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
             .andExpect(jsonPath("$.data.uploads[0].fileName").value("증빙.pdf"))
-            .andExpect(jsonPath("$.data.manualRecords.length()").value(0))
+            .andExpect(jsonPath("$.data.manuals.length()").value(0))
 
         assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
     }
@@ -213,7 +213,7 @@ class IngestionFileUploadTest(
 
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads.length()").value(1))
-            .andExpect(jsonPath("$.data.manualRecords.length()").value(1)) // 수기 행은 그대로
+            .andExpect(jsonPath("$.data.manuals.length()").value(1)) // 수기 행은 그대로
     }
 
     @Test

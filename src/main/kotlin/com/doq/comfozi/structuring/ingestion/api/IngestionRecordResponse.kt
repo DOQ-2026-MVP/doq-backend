@@ -2,6 +2,7 @@ package com.doq.comfozi.structuring.ingestion.api
 
 import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
+import java.time.LocalDateTime
 
 /**
  * 인입 원본 행 응답 — 저장된 [IngestionRecord]의 조회 표현.
@@ -14,6 +15,7 @@ data class IngestionRecordResponse(
     val uploadType: IngestionUploadType? = null,
     val uploadRowNo: Int? = null,
     val content: Map<String, String?>,
+    val createdAt: LocalDateTime,
 ) {
     constructor(record: IngestionRecord) : this(
         id = requireNotNull(record.id),
@@ -21,5 +23,6 @@ data class IngestionRecordResponse(
         uploadType = record.uploadRef?.uploadType,
         uploadRowNo = record.uploadRef?.rowNo,
         content = record.content.values,
+        createdAt = record.createdAt,
     )
 }

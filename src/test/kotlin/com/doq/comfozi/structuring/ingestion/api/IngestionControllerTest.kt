@@ -85,7 +85,7 @@ class IngestionControllerTest(
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.data.uploads.length()").value(1))
             .andExpect(jsonPath("$.data.uploads[0].fileName").value("test.csv"))
-            .andExpect(jsonPath("$.data.manualRecords.length()").value(0))
+            .andExpect(jsonPath("$.data.manuals.length()").value(0))
         // 상태값은 단언하지 않는다 — 파싱이 커밋 직후 비동기로 돌아 PARSING/PARSED 어느 쪽도 가능하다
     }
 
@@ -98,9 +98,9 @@ class IngestionControllerTest(
         )
             .andExpect(status().isCreated)
             .andExpect(jsonPath("$.data.uploads.length()").value(0))
-            .andExpect(jsonPath("$.data.manualRecords.length()").value(1))
-            .andExpect(jsonPath("$.data.manualRecords[0].id").exists())
-            .andExpect(jsonPath("$.data.manualRecords[0].createdAt").exists())
+            .andExpect(jsonPath("$.data.manuals.length()").value(1))
+            .andExpect(jsonPath("$.data.manuals[0].id").exists())
+            .andExpect(jsonPath("$.data.manuals[0].createdAt").exists())
     }
 
     @Test

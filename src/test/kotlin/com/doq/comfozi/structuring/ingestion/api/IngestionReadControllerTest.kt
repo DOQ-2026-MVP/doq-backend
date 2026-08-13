@@ -19,10 +19,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 /**
- * 세션 현황 조회 — 변경 응답·현황 스트림과 같은 모델([IngestionState])을 돌려주는가.
+ * 세션 조회 — 현황(변경 응답·스트림과 같은 [IngestionState])과, 원본 행 전부를 주는 확인용 경로.
  *
- * 화면이 세션에서 보는 것은 올라온 파일들과 수기 행들이라 그만큼만 나간다. 파일에서 나온 행은
- * 응답에 없으므로, 그 행들이 제대로 만들어졌는지는 리포지토리로 확인한다.
+ * 현황에는 화면이 보는 것(올라온 파일들·수기 행들)만 담기고 파일에서 나온 행은 빠진다.
+ * 그 행들이 제대로 만들어졌는지는 `/records` 로 확인한다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -38,9 +38,13 @@ class IngestionReadControllerTest(
         javaClass.getResourceAsStream("/fixtures/golden-20.csv")!!.readBytes()
 
     /** 업로드 후 비동기 파싱까지 끝난 세션 id. */
-    private fun uploadGolden(): Long = service.ingestFile(
-        IngestionFileInput("golden-20.csv", "text/csv", goldenCsv.inputStream()),
-    ).id!!.also { uploadRepository.awaitParsed(it) }
+    private fun uploadGolden(): Long {
+        val input = IngestionFileInput("golden-20.csv", "text/csv", goldenCsv.inputStream())
+        val id = service.ingestFile(input).id!!
+
+        uploadRepository.awaitParsed(id)
+        return id
+    }
 
     private fun uploadIdOf(ingestionId: Long) =
         uploadRepository.findByIngestionIdOrderByIdAsc(ingestionId).single().id
@@ -57,9 +61,9 @@ class IngestionReadControllerTest(
             .andExpect(jsonPath("$.data.ingestionId").value(id))
             .andExpect(jsonPath("$.data.status").value("DRAFT"))
             .andExpect(jsonPath("$.data.uploads.length()").value(0)) // 수기 입력은 업로드가 아니다
-            .andExpect(jsonPath("$.data.manualRecords.length()").value(1))
-            .andExpect(jsonPath("$.data.manualRecords[0].id").exists())
-            .andExpect(jsonPath("$.data.manualRecords[0].createdAt").exists())
+            .andExpect(jsonPath("$.data.manuals.length()").value(1))
+            .andExpect(jsonPath("$.data.manuals[0].id").exists())
+            .andExpect(jsonPath("$.data.manuals[0].createdAt").exists())
     }
 
     @Test
@@ -84,32 +88,57 @@ class IngestionReadControllerTest(
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.uploads.length()").value(1))
-            .andExpect(jsonPath("$.data.manualRecords.length()").value(2)) // 파일 20행은 빠진다
+            .andExpect(jsonPath("$.data.manuals.length()").value(2)) // 파일 20행은 빠진다
 
         assertEquals(22, recordRepository.findByIngestionIdOrderByIdAsc(id).size) // 행 자체는 다 있다
     }
 
     @Test
-    fun `파일 행에는 원본 근거(업로드·행번호)가 붙는다`() {
+    fun `GET records - 파일 행까지 전부 준다 (현황에서 빠진 것을 확인하는 통로)`() {
         val id = uploadGolden()
+        service.ingestManual(listOf(manualInput(docId = "MAN-1")), id)
 
-        // DOC-016 = CSV 17행 → 행 목록 16번째
-        val record = recordRepository.findByIngestionIdOrderByIdAsc(id)[15]
-        assertEquals("DOC-016", record.content.values["문서ID"])
-        assertEquals(uploadIdOf(id), record.uploadRef?.uploadId)
-        assertEquals(17, record.uploadRef?.rowNo)
+        mockMvc.perform(get("/api/ingestion/$id/records"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.length()").value(21)) // 파일 20 + 수기 1
     }
 
     @Test
-    fun `수기 행에는 원본 근거가 없다`() {
+    fun `GET records - 파일 행은 원본 근거(업로드·행번호)를 함께 돌려준다`() {
+        val id = uploadGolden()
+
+        // DOC-016 = CSV 17행 → 행 목록 16번째
+        mockMvc.perform(get("/api/ingestion/$id/records"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data[15].content['문서ID']").value("DOC-016"))
+            .andExpect(jsonPath("$.data[15].uploadType").value("BATCH_FILE"))
+            .andExpect(jsonPath("$.data[15].uploadRowNo").value(17))
+            .andExpect(jsonPath("$.data[15].uploadId").value(uploadIdOf(id)))
+            .andExpect(jsonPath("$.data[15].createdAt").exists())
+    }
+
+    @Test
+    fun `GET records - 수기 행은 원본 근거가 없다`() {
         val id = service.ingestManual(listOf(manualInput(docId = "MAN-9"))).id!!
+
+        mockMvc.perform(get("/api/ingestion/$id/records"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data[0].content.docId").value("MAN-9"))
+            .andExpect(jsonPath("$.data[0].uploadId").isEmpty)
+            .andExpect(jsonPath("$.data[0].uploadType").isEmpty)
+            .andExpect(jsonPath("$.data[0].uploadRowNo").isEmpty)
 
         assertNull(recordRepository.findByIngestionIdOrderByIdAsc(id).single().uploadRef)
     }
 
     @Test
-    fun `GET 없는 세션은 404`() {
+    fun `GET 없는 세션은 404 - 현황도 행 목록도`() {
         mockMvc.perform(get("/api/ingestion/999999"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
+
+        // 빈 목록이 아니라 404 여야 한다 — 세션이 없는 것과 행이 없는 것은 다르다
+        mockMvc.perform(get("/api/ingestion/999999/records"))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
     }
