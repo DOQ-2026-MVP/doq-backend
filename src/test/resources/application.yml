@@ -10,3 +10,8 @@ spring:
     hibernate:
       ddl-auto: create-drop
     database-platform: org.hibernate.dialect.H2Dialect
+    # 운영(main application.yml)과 반드시 같아야 한다. 이 파일이 같은 이름으로 메인 설정을 통째로
+    # 가리므로, 여기 빠지면 테스트에서만 기본값(true)으로 되살아난다.
+    # OSIV 가 켜지면 요청이 끝날 때까지 커넥션을 붙잡는데, 현황 스트림(SSE) 요청은 끝나지 않아
+    # 구독자 1명당 커넥션 1개가 영구히 묶인다 → 풀 고갈.
+    open-in-view: false
