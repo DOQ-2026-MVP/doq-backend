@@ -1,6 +1,8 @@
 package com.doq.comfozi.structuring.ingestion.api
 
 import com.doq.comfozi.structuring.StructuringService
+import com.doq.comfozi.structuring.ingestion.awaitParsed
+import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadStatus
 import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
@@ -52,11 +54,14 @@ class IngestionFileUploadTest(
     private fun file(name: String, type: String, bytes: ByteArray) = MockMultipartFile("file", name, type, bytes)
     private fun pdf() = file("증빙.pdf", "application/pdf", pdfBytes)
 
+    /** 새 세션에 올리고 비동기 파싱까지 끝난 뒤 세션 id 를 돌려준다. */
     private fun upload(f: MockMultipartFile): Long {
         val body = mockMvc.perform(multipart("/api/ingestion/uploads").file(f))
             .andExpect(status().isCreated)
             .andReturn().response.contentAsString
-        return Regex("\"ingestionId\":(\\d+)").find(body)!!.groupValues[1].toLong()
+        val id = Regex("\"ingestionId\":(\\d+)").find(body)!!.groupValues[1].toLong()
+        uploadRepository.awaitParsed(id)
+        return id
     }
 
     @Test
@@ -68,9 +73,8 @@ class IngestionFileUploadTest(
             .andExpect(jsonPath("$.data.status").value("DRAFT"))
             .andExpect(jsonPath("$.data.uploads.length()").value(1))
             .andExpect(jsonPath("$.data.uploads[0].type").value("FILE"))
-            .andExpect(jsonPath("$.data.uploads[0].status").value("PENDING_EXTRACTION"))
+            .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
             .andExpect(jsonPath("$.data.uploads[0].fileName").value("증빙.pdf"))
-            .andExpect(jsonPath("$.data.uploads[0].recordCount").value(0))
             .andExpect(jsonPath("$.data.records.length()").value(0))
 
         assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
@@ -82,7 +86,7 @@ class IngestionFileUploadTest(
             val id = upload(f)
             mockMvc.perform(get("/api/ingestion/$id"))
                 .andExpect(jsonPath("$.data.uploads[0].type").value("FILE"))
-                .andExpect(jsonPath("$.data.uploads[0].status").value("PENDING_EXTRACTION"))
+                .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
         }
     }
 
@@ -93,7 +97,7 @@ class IngestionFileUploadTest(
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads[0].type").value("BATCH_FILE"))
             .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
-            .andExpect(jsonPath("$.data.uploads[0].recordCount").value(1))
+            .andExpect(jsonPath("$.data.records.length()").value(1))
             .andExpect(jsonPath("$.data.records[0].content['문서ID']").value("DOC-001"))
     }
 
@@ -101,6 +105,7 @@ class IngestionFileUploadTest(
     fun `한 세션에 표 파일과 원본 문서를 섞어 올릴 수 있다`() {
         val id = upload(file("golden.csv", "text/csv", csv))
         mockMvc.perform(multipart("/api/ingestion/$id/uploads").file(pdf())).andExpect(status().isCreated)
+        uploadRepository.awaitParsed(id)
 
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads.length()").value(2))
@@ -115,7 +120,7 @@ class IngestionFileUploadTest(
 
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads[0].type").value("BATCH_FILE"))
-            .andExpect(jsonPath("$.data.uploads[0].recordCount").value(1))
+            .andExpect(jsonPath("$.data.records.length()").value(1))
     }
 
     @Test
@@ -124,7 +129,7 @@ class IngestionFileUploadTest(
 
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads[0].type").value("FILE"))
-            .andExpect(jsonPath("$.data.uploads[0].status").value("PENDING_EXTRACTION"))
+            .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
     }
 
     @Test
@@ -138,21 +143,50 @@ class IngestionFileUploadTest(
     }
 
     @Test
-    fun `zip 이지만 xlsx 가 아니면 400 - 스택트레이스 대신 안내`() {
+    fun `zip 이지만 xlsx 가 아니면 파싱 실패로 남는다 - 스택트레이스 대신 안내`() {
         val docxLike = byteArrayOf(0x50, 0x4B, 0x03, 0x04) + ByteArray(64) { 0x41 }
 
-        mockMvc.perform(multipart("/api/ingestion/uploads").file(file("문서.docx", "application/msword", docxLike)))
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
+        // 매직 바이트로는 xlsx 와 구분되지 않으므로 접수는 되고, 파싱 단계에서 걸린다
+        val id = upload(file("문서.docx", "application/msword", docxLike))
+
+        mockMvc.perform(get("/api/ingestion/$id"))
+            .andExpect(jsonPath("$.data.uploads[0].status").value("PARSE_FAILED"))
+            .andExpect(jsonPath("$.data.uploads[0].failureReason").value(containsString("읽을 수 없습니다")))
+            .andExpect(jsonPath("$.data.records.length()").value(0))
     }
 
     @Test
     fun `텍스트지만 헤더가 틀리면 헤더 누락으로 안내한다`() {
         val wrongHeader = "이름,수량\n연필,3".toByteArray()
 
-        mockMvc.perform(multipart("/api/ingestion/uploads").file(file("other.csv", "text/csv", wrongHeader)))
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error.message").value(containsString("필수 헤더 누락")))
+        val id = upload(file("other.csv", "text/csv", wrongHeader))
+
+        mockMvc.perform(get("/api/ingestion/$id"))
+            .andExpect(jsonPath("$.data.uploads[0].status").value("PARSE_FAILED"))
+            .andExpect(jsonPath("$.data.uploads[0].failureReason").value(containsString("필수 헤더 누락")))
+    }
+
+    @Test
+    fun `파싱에 실패해도 원본은 남는다 - 확인 후 지울 수 있다`() {
+        val wrongHeader = "이름,수량\n연필,3".toByteArray()
+        val id = upload(file("other.csv", "text/csv", wrongHeader))
+        val uploadId = uploadRepository.findByIngestionIdOrderByIdAsc(id).single().id!!
+
+        mockMvc.perform(get("/api/ingestion/$id/uploads/$uploadId/content"))
+            .andExpect(status().isOk)
+            .andExpect(content().bytes(wrongHeader))
+
+        mockMvc.perform(delete("/api/ingestion/$id/uploads/$uploadId")).andExpect(status().isOk)
+        assertTrue(uploadRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
+    }
+
+    @Test
+    fun `파싱이 끝나지 않은 세션은 구조화할 수 없다`() {
+        val id = upload(file("golden.csv", "text/csv", csv))
+        val upload = uploadRepository.findByIngestionIdOrderByIdAsc(id).single()
+        uploadRepository.save(upload.apply { status = IngestionUploadStatus.PARSING }) // 파싱 중 재현
+
+        assertFailsWith<IllegalStateException> { structuringService.struct(id) }
     }
 
     @Test

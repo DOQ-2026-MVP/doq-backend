@@ -14,6 +14,14 @@ interface IngestionUploadRepository : JpaRepository<IngestionUpload, Long> {
 interface IngestionRecordRepository : JpaRepository<IngestionRecord, Long> {
     fun findByIngestionIdOrderByIdAsc(ingestionId: Long): List<IngestionRecord>
 
+    /**
+     * 세션의 수기 행들 (id 오름차순). 파일 출처 행(uploadRef 있음)은 대상 밖이다.
+     *
+     * 현황 스트림용 — 수기 행은 사람이 손으로 넣는 만큼이라 전부 읽어도 싸지만, 파일 행은 한 파일에
+     * 수만 개일 수 있어 여기에 섞지 않는다(파일은 업로드 단위로 보여준다).
+     */
+    fun findByIngestionIdAndUploadRefUploadIdIsNullOrderByIdAsc(ingestionId: Long): List<IngestionRecord>
+
     /** 세션의 모든 원본 행 삭제 (수기·파일 무관). */
     fun deleteByIngestionId(ingestionId: Long): Long
 

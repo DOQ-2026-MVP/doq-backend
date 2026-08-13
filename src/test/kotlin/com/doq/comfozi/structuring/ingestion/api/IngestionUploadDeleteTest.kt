@@ -1,5 +1,6 @@
 package com.doq.comfozi.structuring.ingestion.api
 
+import com.doq.comfozi.structuring.ingestion.awaitParsed
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUpload
 import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
@@ -44,7 +45,7 @@ class IngestionUploadDeleteTest(
         val input = IngestionFileInput(fileName, "text/csv", csv(*docIds).byteInputStream())
         val session = if (ingestionId == null) service.ingestFile(input)
         else service.ingestFile(input, ingestionId)
-        return session.id!!
+        return session.id!!.also { uploadRepository.awaitParsed(it) } // 파싱은 커밋 이후 비동기
     }
 
     /** 파일 2개 + 수기 1건이 담긴 세션. */
@@ -71,6 +72,10 @@ class IngestionUploadDeleteTest(
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.ingestionId").value(id))
             .andExpect(jsonPath("$.data.status").value("DRAFT"))
+            // 응답이 곧 지운 뒤 현황이다 — 다시 조회할 필요가 없다
+            .andExpect(jsonPath("$.data.uploads.length()").value(1))
+            .andExpect(jsonPath("$.data.uploads[0].fileName").value("second.csv"))
+            .andExpect(jsonPath("$.data.manualRecords.length()").value(1))
 
         assertEquals(listOf("second.csv"), uploads(id).map { it.fileName })
         assertEquals(listOf("DOC-003", "MAN-1"), docIdsOf(id))

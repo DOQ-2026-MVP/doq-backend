@@ -28,7 +28,7 @@ class IngestionUpload(
     @Column(nullable = false, updatable = false)
     val type: IngestionUploadType,
 
-    // 처리 현황 — 추출 단계가 생기면 여기서 진행되므로 불변이 아니다
+    // 처리 현황 — 파싱이 비동기라 업로드 이후에도 바뀐다
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var status: IngestionUploadStatus,
@@ -44,4 +44,26 @@ class IngestionUpload(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
+
+    /** 파싱 실패 사유 — [IngestionUploadStatus.PARSE_FAILED]일 때만 채워진다. */
+    @Column(length = FAILURE_REASON_MAX)
+    var failureReason: String? = null
+        private set
+
+    /** 파싱 완료 — 원본 행이 적재된 뒤 호출한다. */
+    fun markParsed() {
+        status = IngestionUploadStatus.PARSED
+        failureReason = null
+    }
+
+    /** 파싱 실패 — 원본은 남겨 두고 사유만 기록한다(화면에서 확인 후 삭제·재업로드). */
+    fun markParseFailed(reason: String) {
+        status = IngestionUploadStatus.PARSE_FAILED
+        failureReason = reason.take(FAILURE_REASON_MAX)
+    }
+
+    private companion object {
+        /** DDL(varchar) 길이와 맞춘다 — 원인 체인이 긴 메시지는 잘라 넣는다. */
+        const val FAILURE_REASON_MAX = 500
+    }
 }

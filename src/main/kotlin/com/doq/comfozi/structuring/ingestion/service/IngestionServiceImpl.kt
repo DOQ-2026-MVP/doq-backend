@@ -12,7 +12,7 @@ import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepositor
 import com.doq.comfozi.structuring.ingestion.support.ClassifiedFile
 import com.doq.comfozi.structuring.ingestion.support.FileStorage
 import com.doq.comfozi.structuring.ingestion.support.IngestionFileClassifier
-import com.doq.comfozi.structuring.ingestion.support.IngestionUploadBatchFileParser
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
@@ -25,42 +25,44 @@ class IngestionServiceImpl(
     private val uploadRepository: IngestionUploadRepository,
     private val recordRepository: IngestionRecordRepository,
     private val fileStorage: FileStorage,
-    private val batchFileParser: IngestionUploadBatchFileParser,
     private val fileClassifier: IngestionFileClassifier,
+    private val eventPublisher: ApplicationEventPublisher,
 ) : IngestionService {
 
     @Transactional
     override fun createSession(): Ingestion = ingestionRepository.save(Ingestion()) // DRAFT
 
     /**
-     * 업로드 1건 적재 — 내용으로 처리 경로를 정한다.
+     * 업로드 1건 접수 — 내용으로 처리 경로를 정하고 **원본 보관까지만** 한다.
      *
-     * 분류·파싱을 **세션·저장보다 먼저** 끝내 실패 시 부작용 없이 400 이 나가게 한다.
-     * 원본 증빙 문서는 행 추출이 없으므로 [IngestionRecord]를 만들지 않는다.
+     * 분류(매직 바이트)는 여기서 끝낸다 — 싸고, 지원하지 않는 형식은 아무것도 저장하지 않은 채
+     * 400 으로 돌려보내야 하기 때문이다. 반면 **후속 처리는 비동기**다: 커밋 이후
+     * [IngestionUploadStoredListener]가 받아 별도 스레드에서 경로별로 처리한다. 그래서 어느 경로든
+     * PARSING 으로 접수되고, 처리 실패는 400 이 아니라 PARSE_FAILED 상태로 남는다.
      */
     @Transactional
     override fun ingestFile(input: IngestionFileInput, ingestionId: Long?): Ingestion {
-        val bytes = input.content.readBytes() // 분류·파싱·저장에 여러 번 쓰므로 버퍼링
+        val bytes = input.content.readBytes() // 분류·저장에 두 번 쓰므로 버퍼링
+        val classified = fileClassifier.classify(bytes) // 지원 형식이 아니면 저장 전에 400
 
-        // 부작용 전에 전부 판정한다 — 파싱 결과가 있으면 취합 표, 없으면 보관 전용 문서
-        val classified = fileClassifier.classify(bytes)
-        val parsed = when (classified) {
-            is ClassifiedFile.BatchFile -> batchFileParser.parse(bytes, classified.format)
-            is ClassifiedFile.Document -> null
+        val type = when (classified) {
+            is ClassifiedFile.Document -> IngestionUploadType.FILE
+            is ClassifiedFile.BatchFile -> IngestionUploadType.BATCH_FILE
         }
 
         val ingestion = resolveDraftSession(ingestionId)
         val upload = storeUpload(
             ingestion = ingestion,
             bytes = bytes,
-            type = if (parsed == null) IngestionUploadType.FILE else IngestionUploadType.BATCH_FILE,
-            // 보관 전용 문서는 추출 미지원 상태로 남는다 — 수기 입력으로 보완
-            status = if (parsed == null) IngestionUploadStatus.PENDING_EXTRACTION else IngestionUploadStatus.PARSED,
+            type = type,
+            status = IngestionUploadStatus.PARSING, // 처리는 커밋 이후 — 어느 경로든 접수 상태로 시작
             fileName = input.fileName,
             contentType = input.contentType,
         )
 
-        parsed?.let { recordRepository.saveAll(it.toEntities(ingestion.id!!, upload.id!!)) }
+        // 처리 경로가 있든 없든 전부 발행한다 — 커밋 이후에 전달되므로 워커가 이 업로드 행을 볼 수 있다
+        eventPublisher.publishEvent(IngestionUploadStored(upload.id!!, classified))
+        publishChange(ingestion, IngestionChange.UploadReceived(upload.id!!))
         return ingestion
     }
 
@@ -70,6 +72,8 @@ class IngestionServiceImpl(
 
         val ingestion = resolveDraftSession(ingestionId)
         recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
+
+        publishChange(ingestion, IngestionChange.RecordsAdded(inputs.size))
         return ingestion
     }
 
@@ -123,6 +127,11 @@ class IngestionServiceImpl(
 
         ingestion.markFailed()
         return ingestion
+    }
+
+    /** 세션을 보고 있는 화면에 변화를 알린다 — 전달은 커밋 이후다([IngestionChanged]). */
+    private fun publishChange(ingestion: Ingestion, change: IngestionChange) {
+        eventPublisher.publishEvent(IngestionChanged(ingestion.id!!, change))
     }
 
     /** 원본 바이트를 저장하고 업로드 이벤트를 남긴다 — 취합 파일·원본 문서가 공유하는 부분. */

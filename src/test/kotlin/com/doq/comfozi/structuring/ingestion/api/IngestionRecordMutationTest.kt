@@ -1,9 +1,11 @@
 package com.doq.comfozi.structuring.ingestion.api
 
+import com.doq.comfozi.structuring.ingestion.awaitParsed
 import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
 import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
+import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import com.doq.common.config.AppObjectMapper
@@ -31,6 +33,7 @@ class IngestionRecordMutationTest(
     @Autowired val service: IngestionService,
     @Autowired val ingestionRepository: IngestionRepository,
     @Autowired val recordRepository: IngestionRecordRepository,
+    @Autowired val uploadRepository: IngestionUploadRepository,
 ) {
 
     private val csv = """
@@ -44,6 +47,7 @@ class IngestionRecordMutationTest(
             IngestionFileInput("test.csv", "text/csv", csv.byteInputStream()),
         )
         val id = session.id!!
+        uploadRepository.awaitParsed(id) // 파싱이 비동기라 기다려야 파일 행이 있다
         service.ingestManual(listOf(manualInput(docId = "MAN-1"), manualInput(docId = "MAN-2")), id)
         return id
     }
@@ -132,10 +136,10 @@ class IngestionRecordMutationTest(
             .andExpect(status().isOk)
 
         assertEquals(0, records(id).count { it.uploadRef != null })
-        // 업로드는 그대로 — 행 수만 줄어든다
+        // 업로드는 그대로 — 그 업로드에서 나온 행만 사라진다
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads.length()").value(1))
-            .andExpect(jsonPath("$.data.uploads[0].recordCount").value(0))
+            .andExpect(jsonPath("$.data.records.length()").value(2))
     }
 
     @Test

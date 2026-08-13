@@ -1,5 +1,6 @@
 package com.doq.comfozi.structuring.ingestion.api
 
+import com.doq.comfozi.structuring.ingestion.awaitParsed
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
@@ -40,7 +41,7 @@ class IngestionTruncateTest(
             IngestionFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
         )
         service.ingestManual(listOf(manualInput(docId = "MAN-1", rawItemName = "수기품목")), session.id!!)
-        return session.id!!
+        return session.id!!.also { uploadRepository.awaitParsed(it) } // 파싱은 커밋 이후 비동기
     }
 
     @Test
