@@ -5,7 +5,7 @@ import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
-import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import com.doq.comfozi.structuring.ingestion.support.FileStorage
 import org.springframework.beans.factory.annotation.Autowired
@@ -41,9 +41,9 @@ class IngestionUploadDeleteTest(
     }
 
     private fun upload(ingestionId: Long?, fileName: String, vararg docIds: String): Long {
-        val input = IngestionBatchFileInput(fileName, "text/csv", csv(*docIds).byteInputStream())
-        val session = if (ingestionId == null) service.createFromBatchFile(input)
-        else service.continueFromBatchFile(ingestionId, input)
+        val input = IngestionFileInput(fileName, "text/csv", csv(*docIds).byteInputStream())
+        val session = if (ingestionId == null) service.createFromFile(input)
+        else service.continueFromFile(ingestionId, input)
         return session.id!!
     }
 

@@ -2,7 +2,7 @@ package com.doq.comfozi.structuring.ingestion.api
 
 import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
-import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -26,8 +26,8 @@ class IngestionReadControllerTest(
     private val goldenCsv: ByteArray =
         javaClass.getResourceAsStream("/fixtures/golden-20.csv")!!.readBytes()
 
-    private fun uploadGolden() = service.createFromBatchFile(
-        IngestionBatchFileInput("golden-20.csv", "text/csv", goldenCsv.inputStream()),
+    private fun uploadGolden() = service.createFromFile(
+        IngestionFileInput("golden-20.csv", "text/csv", goldenCsv.inputStream()),
     ).id!!
 
     private fun uploadIdOf(ingestionId: Long) =

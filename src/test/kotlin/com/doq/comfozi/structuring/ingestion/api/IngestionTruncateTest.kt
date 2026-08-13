@@ -3,7 +3,7 @@ package com.doq.comfozi.structuring.ingestion.api
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
-import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,8 +36,8 @@ class IngestionTruncateTest(
 
     /** 파일 업로드 + 수기 입력이 함께 담긴 세션을 만들고 id를 돌려준다. */
     private fun seed(): Long {
-        val session = service.createFromBatchFile(
-            IngestionBatchFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
+        val session = service.createFromFile(
+            IngestionFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
         )
         service.continueFromManualRecords(session.id!!, listOf(manualInput(docId = "MAN-1", rawItemName = "수기품목")))
         return session.id!!

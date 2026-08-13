@@ -3,7 +3,7 @@ package com.doq.comfozi.structuring.ingestion
 import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
-import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionManualInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -32,8 +32,8 @@ class IngestionServiceTest(
             DOC-016,IMAGE,푸른포장(예시),투명리드500,500EA/BOX,BOX,39000,41000,
         """.trimIndent()
 
-        val ingestion = service.createFromBatchFile(
-            IngestionBatchFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
+        val ingestion = service.createFromFile(
+            IngestionFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
         )
 
         assertNotNull(ingestion.id)
@@ -96,8 +96,8 @@ class IngestionServiceTest(
             bos.toByteArray()
         }
 
-        val ingestion = service.createFromBatchFile(
-            IngestionBatchFileInput(fileName = "golden.xlsx", contentType = null, content = bytes.inputStream()),
+        val ingestion = service.createFromFile(
+            IngestionFileInput(fileName = "golden.xlsx", contentType = null, content = bytes.inputStream()),
         )
 
         val records = recordRepository.findByIngestionIdOrderByIdAsc(ingestion.id!!)

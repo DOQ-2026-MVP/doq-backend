@@ -4,7 +4,7 @@ import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.inspection.service.InspectionReviewService
 import com.doq.comfozi.structuring.StructuringService
-import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -36,8 +36,8 @@ class InspectionExportFromFileTest(
     @Test
     fun `골든 CSV 업로드 후 승인 항목 export에 파일 근거가 실린다`() {
         // 업로드 → 구조화
-        val session = ingestionService.createFromBatchFile(
-            IngestionBatchFileInput(
+        val session = ingestionService.createFromFile(
+            IngestionFileInput(
                 fileName = "golden-20.csv",
                 contentType = "text/csv",
                 content = goldenCsv.inputStream(),
