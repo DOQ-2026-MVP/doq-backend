@@ -38,7 +38,7 @@ class IngestionReadController(
      * 받는 쪽은 화면을 갈아끼우면 된다. 구독 즉시 현재 상태가 한 번 오므로(`change: null`) 최초 조회를
      * 따로 하지 않아도 되고, 끊겼다 붙어도 그 스냅샷이 곧 최신이라 놓친 이벤트를 메울 필요가 없다.
      *
-     * 원본 행 목록은 싣지 않는다 — 필요하면 `GET /api/ingestion/{ingestionId}`.
+     * 실리는 현황은 세션 조회가 돌려주는 것과 같다 — 스트림을 못 쓰는 상황이면 그쪽으로 폴백하면 된다.
      *
      * 없는 세션이면 **본문 없이 404**다. 다른 엔드포인트와 달리 공통 실패 envelope(JSON)을 쓰지 않는데,
      * EventSource 는 `Accept: text/event-stream` 만 보내서 JSON 본문이 협상에 걸리기 때문이다
@@ -59,18 +59,17 @@ class IngestionReadController(
             ResponseEntity.notFound().build()
         }
 
-    /** 인입 세션 + 업로드 현황 + 원본 행 조회. 없으면 404. */
-    @Operation(summary = "인입 세션 + 업로드 현황 + 원본 행 조회")
+    /**
+     * 인입 세션 현황 조회 — 올라온 파일들과 수기 행들. 없으면 404.
+     *
+     * 변경 응답·현황 스트림과 **같은 [IngestionState]** 를 돌려준다. 화면이 세션에 대해 다루는 모델은
+     * 하나이고, 이 엔드포인트는 그 모델을 언제든 다시 받아오는 통로다(스트림을 못 쓰는 경우의 폴백).
+     */
+    @Operation(summary = "인입 세션 현황 조회 (업로드·수기 행)")
     @GetMapping("/{ingestionId}")
     fun getIngestion(
         @PathVariable ingestionId: Long,
-    ): ApiResponse<IngestionSessionResponse> = ApiResponse.ok(
-        data = IngestionSessionResponse(
-            ingestion = readService.getSession(ingestionId),
-            uploads = readService.getUploads(ingestionId),
-            records = readService.getRecords(ingestionId),
-        ),
-    )
+    ): ApiResponse<IngestionState> = ApiResponse.ok(data = IngestionState(readService.getStatus(ingestionId)))
 
     /**
      * 업로드 원본 다운로드 — 화면에서 PDF·이미지를 열어보고 수기 입력으로 옮기기 위한 경로.

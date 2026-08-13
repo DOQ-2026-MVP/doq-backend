@@ -139,7 +139,7 @@ class IngestionRecordMutationTest(
         // 업로드는 그대로 — 그 업로드에서 나온 행만 사라진다
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads.length()").value(1))
-            .andExpect(jsonPath("$.data.records.length()").value(2))
+            .andExpect(jsonPath("$.data.manualRecords.length()").value(2)) // 수기 2건은 남는다
     }
 
     @Test
