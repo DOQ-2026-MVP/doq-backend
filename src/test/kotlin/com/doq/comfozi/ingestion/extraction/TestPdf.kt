@@ -8,10 +8,11 @@ import org.apache.pdfbox.pdmodel.font.Standard14Fonts
 import java.io.ByteArrayOutputStream
 
 /**
- * 테스트용 PDF 생성 — 요구사항이 준 원본 문서는 `docs/requirements/` 가 통째로 gitignore 라
- * 픽스처로 커밋할 수 없다. 대신 아는 내용을 담은 PDF 를 그때그때 만들어 쓴다.
+ * 테스트용 PDF 생성 — 내용을 통제해야 하는 경우(빈 텍스트·특정 문구)에 쓴다.
  *
- * 실제 원본으로 하는 회귀는 로컬 수동 검증 몫이다(README·PR 참고).
+ * 제공된 실제 공문 2개는 `src/test/resources/fixtures/notice-*.pdf` 로 들어와 있다
+ * (`docs/requirements/additional_inputs/` 에서 복사). 실제 문서의 표 레이아웃·한글 추출을
+ * 확인하는 쪽은 그걸 쓰고, 여기서 만든 PDF 는 경계 조건용이다.
  */
 object TestPdf {
 

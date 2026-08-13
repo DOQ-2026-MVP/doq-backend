@@ -141,8 +141,9 @@ src/main/kotlin/com/doq/
 ./gradlew test        # 테스트만 (H2 in-memory, Docker 불필요)
 ```
 
-- 테스트 입력: `src/test/resources/fixtures/golden-20.csv` (제공 증빙 20건). 업로드→구조화→승인→export
-  전 경로를 실제 파일로 검증한다.
+- 테스트 입력: `src/test/resources/fixtures/` — `golden-20.csv`(제공 증빙 20건)로 업로드→구조화→승인
+  →export 전 경로를, `notice-*.pdf`(제공 원본 공문 2개)로 PDF 텍스트 추출과 원문 적재를 검증한다.
+- LLM 추출은 추출기를 페이크로 대체해 검증하므로 **테스트에 API 키가 필요 없다.**
 
 ## 기술 스택
 

@@ -87,6 +87,18 @@ class IngestionFileUploadTest(
     }
 
     @Test
+    fun `제공된 실제 공문도 같은 경로로 처리된다`() {
+        val real = javaClass.getResourceAsStream("/fixtures/notice-gaonfood.pdf")!!.readBytes()
+
+        val id = upload(file("가온푸드_단가변경공문.pdf", "application/pdf", real))
+
+        val record = recordRepository.findByIngestionIdOrderByIdAsc(id).single()
+        assertTrue(record.content.values["rawItemName"]!!.contains("할라피뇨슬라이스"))
+        assertEquals("PDF", record.content.values["sourceType"])
+        assertEquals(1, record.uploadRef?.rowNo)
+    }
+
+    @Test
     fun `PNG·JPEG는 읽어낼 텍스트가 없어 행을 만들지 않는다`() {
         for (f in listOf(file("a.png", "image/png", pngBytes), file("b.jpg", "image/jpeg", jpegBytes))) {
             val id = upload(f)
