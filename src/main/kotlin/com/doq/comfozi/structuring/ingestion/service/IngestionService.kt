@@ -1,6 +1,7 @@
 package com.doq.comfozi.structuring.ingestion.service
 
 import com.doq.comfozi.structuring.ingestion.domain.Ingestion
+import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
 
 /**
  * 인입 서비스 — 파일/수기 입력을 세션·행으로 적재한다. (조회는 [IngestionReadService])
@@ -42,4 +43,16 @@ interface IngestionService {
      * 업로드 id면 없는 것으로 취급한다(404).
      */
     fun deleteUpload(ingestionId: Long, uploadId: Long): Ingestion
+
+    /**
+     * 원본 행 1건을 삭제한다 (수기·파일 무관 — 구조화 전이라 지워도 깨지는 불변식이 없다).
+     * DRAFT·FAILED 세션에서만 가능하며, 세션에 속하지 않은 행 id면 없는 것으로 취급한다(404).
+     */
+    fun deleteRecord(ingestionId: Long, recordId: Long): Ingestion
+
+    /**
+     * 수기 행의 원문을 교체한다(오타 정정 등). 파일 출처 행은 원본 근거라 대상이 아니며(409),
+     * 수정은 구조화 이후 검수 단계의 몫이다. DRAFT·FAILED 세션에서만 가능.
+     */
+    fun updateManualRecord(ingestionId: Long, recordId: Long, input: IngestionManualInput): IngestionRecord
 }
