@@ -1,5 +1,7 @@
 package com.doq.comfozi.structuring.mapping
 
+import kotlin.reflect.KProperty1
+
 /**
  * 구조화된 레코드(관찰값) — 원문을 캐노니컬 필드로 정렬한 결과.
  *
@@ -19,10 +21,24 @@ data class MappedRecord(
     var normalizedItemName: String? = null,
 ) {
     /** 필수 9필드 값 (정규화 품목명 제외) — 누락 검사용. */
-    fun requiredValues(): List<String?> =
-        listOf(docId, sourceType, supplier, rawItemName, spec, unit, priceBefore, priceAfter, effectiveDate)
+    fun requiredValues(): List<String?> = REQUIRED_FIELDS.map { it.get(this) }
 
     /** 중복키 구성 값 (요구사항 §2) — 공급사·정규화품목명·규격·단위·기존/변경단가·적용일. */
     fun duplicateKeyValues(): List<String?> =
         listOf(supplier, normalizedItemName, spec, unit, priceBefore, priceAfter, effectiveDate)
+
+    companion object {
+        /** 필수 9필드의 캐노니컬 순서 — 누락 검사·이력 diff의 단일 출처(매직 스트링 방지). */
+        val REQUIRED_FIELDS: List<KProperty1<MappedRecord, String?>> = listOf(
+            MappedRecord::docId,
+            MappedRecord::sourceType,
+            MappedRecord::supplier,
+            MappedRecord::rawItemName,
+            MappedRecord::spec,
+            MappedRecord::unit,
+            MappedRecord::priceBefore,
+            MappedRecord::priceAfter,
+            MappedRecord::effectiveDate,
+        )
+    }
 }

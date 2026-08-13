@@ -52,7 +52,24 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 | POST | `/records` | 수기 입력들로 새 세션 |
 | POST | `/{ingestionId}/records` | 수기 입력 이어붙임 |
 | DELETE | `/{ingestionId}/records` | 세션 비우기(truncate → DRAFT 복귀) |
-| GET | `/{ingestionId}` | 세션·원본 행 조회 |
+| GET | `/{ingestionId}` | 세션 + 업로드 현황 + 원본 행 조회 |
+
+#### 세션 조회 응답 — 입력 화면용 현황
+
+`GET /{ingestionId}` 은 `uploads`(업로드 현황)와 `records`(원본 행)를 함께 준다.
+변경 계열 응답(업로드·수기 입력)은 세션만 돌려주므로 둘 다 `null` 이다.
+
+| 필드 | 설명 |
+|---|---|
+| `uploads[].status` | `PARSED` (취합 파일 파싱 완료) · `PENDING_EXTRACTION` (원본 문서 보관, 행 추출 미지원) |
+| `uploads[].recordCount` | 그 업로드에서 나온 원본 행 수 (수기 입력은 세지 않음) |
+| `records[].uploadId` / `uploadType` / `uploadRowNo` | 원본 근거. 수기 입력이면 전부 `null` |
+
+파싱에 실패한 업로드는 애초에 저장하지 않으므로(업로드 요청이 400) `uploads` 에 나타나지 않는다.
+
+**행 단위 이상 여부는 인입 단계에서 판정하지 않는다.** 필수값 누락·규격/단위 불일치·중복은
+구조화 이후 검수 인박스에서 `exception_flags` 와 검수결과(`확인 필요`·`보류 필요`)로 표시된다.
+수기 입력은 경계에서 9필드를 검증하므로(실패 시 400) 저장된 수기 행은 항상 완전하다.
 
 ### 구조화 (`/api/structuring`)
 | Method | Path | 설명 |

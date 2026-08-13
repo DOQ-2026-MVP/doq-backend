@@ -3,6 +3,7 @@ package com.doq.comfozi.structuring.ingestion.service
 import com.doq.comfozi.structuring.ingestion.domain.Ingestion
 import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUpload
+import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadStatus
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
@@ -60,7 +61,7 @@ class IngestionServiceImpl(
             "완료된(STRUCTURED) 세션은 비울 수 없음"
         }
 
-        val uploads = uploadRepository.findByIngestionId(ingestionId)
+        val uploads = uploadRepository.findByIngestionIdOrderByIdAsc(ingestionId)
         uploads.forEach { fileStorage.delete(it.storageKey) } // 저장 원본 정리
         uploadRepository.deleteAll(uploads)
         recordRepository.deleteByIngestionId(ingestionId) // 수기·파일 행 모두
@@ -78,6 +79,7 @@ class IngestionServiceImpl(
             IngestionUpload(
                 ingestionId = ingestion.id!!,
                 type = IngestionUploadType.BATCH_FILE,
+                status = IngestionUploadStatus.PARSED, // 파싱을 통과해야 여기 도달
                 fileName = input.fileName,
                 storageKey = stored.storageKey,
                 contentType = input.contentType,

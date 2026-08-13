@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface IngestionRepository : JpaRepository<Ingestion, Long>
 
 interface IngestionUploadRepository : JpaRepository<IngestionUpload, Long> {
-    fun findByIngestionId(ingestionId: Long): List<IngestionUpload>
+    fun findByIngestionIdOrderByIdAsc(ingestionId: Long): List<IngestionUpload>
 }
 
 interface IngestionRecordRepository : JpaRepository<IngestionRecord, Long> {
