@@ -22,11 +22,15 @@ class IngestionReadServiceImpl(
         ingestionRepository.findByIdOrNull(ingestionId)
             ?: throw NoSuchElementException("알 수 없는 Ingestion 세션 $ingestionId")
 
-    override fun getStatus(ingestionId: Long): IngestionSessionStatus = IngestionSessionStatus(
-        ingestion = getSession(ingestionId),
-        uploads = getUploads(ingestionId),
-        manualRecords = recordRepository.findByIngestionIdAndUploadRefUploadIdIsNullOrderByIdAsc(ingestionId),
-    )
+    override fun getStatus(ingestionId: Long): IngestionSessionStatus {
+        val manualRecords = recordRepository.findByIngestionIdAndUploadRefUploadIdIsNullOrderByIdAsc(ingestionId)
+
+        return IngestionSessionStatus(
+            ingestion = getSession(ingestionId),
+            uploads = getUploads(ingestionId),
+            manualRecords = manualRecords,
+        )
+    }
 
     override fun getUploads(ingestionId: Long): List<IngestionUpload> =
         uploadRepository.findByIngestionIdOrderByIdAsc(ingestionId)

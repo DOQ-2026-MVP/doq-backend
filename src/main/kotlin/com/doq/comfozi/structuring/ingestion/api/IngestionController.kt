@@ -52,7 +52,11 @@ class IngestionController(
     fun uploadFile(
         @PathVariable(required = false) ingestionId: Long?,
         @RequestPart("file") file: MultipartFile,
-    ): ApiResponse<IngestionState> = state(service.ingestFile(file.toFileInput(), ingestionId))
+    ): ApiResponse<IngestionState> {
+        val ingestion = service.ingestFile(file.toFileInput(), ingestionId)
+
+        return state(ingestion)
+    }
 
     /**
      * 수기 입력 적재(upsert) — 행은 업로드 출처 없이 생성된다(uploadRef=null).
@@ -64,7 +68,12 @@ class IngestionController(
     fun addManualRecords(
         @PathVariable(required = false) ingestionId: Long?,
         @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
-    ): ApiResponse<IngestionState> = state(service.ingestManual(requests.map { it.toInput() }, ingestionId))
+    ): ApiResponse<IngestionState> {
+        val inputs = requests.map { it.toInput() }
+        val ingestion = service.ingestManual(inputs, ingestionId)
+
+        return state(ingestion)
+    }
 
     /**
      * 수기 행 수정 — 9필드를 **전체 교체**한다(부분 갱신 아님). 검증은 추가 때와 동일.
@@ -87,7 +96,11 @@ class IngestionController(
     fun deleteRecord(
         @PathVariable ingestionId: Long,
         @PathVariable recordId: Long,
-    ): ApiResponse<IngestionState> = state(service.deleteRecord(ingestionId, recordId))
+    ): ApiResponse<IngestionState> {
+        val ingestion = service.deleteRecord(ingestionId, recordId)
+
+        return state(ingestion)
+    }
 
     /** 업로드 1건 삭제 — 그 업로드에서 나온 행·저장 원본까지. 다른 업로드의 행과 수기 행은 남는다. */
     @Operation(summary = "업로드 1건 삭제 (해당 업로드의 원본 행·저장 파일 포함)")
@@ -95,21 +108,32 @@ class IngestionController(
     fun deleteUpload(
         @PathVariable ingestionId: Long,
         @PathVariable uploadId: Long,
-    ): ApiResponse<IngestionState> = state(service.deleteUpload(ingestionId, uploadId))
+    ): ApiResponse<IngestionState> {
+        val ingestion = service.deleteUpload(ingestionId, uploadId)
+
+        return state(ingestion)
+    }
 
     /** 세션 비우기(truncate) — 원본 행(수기·파일)·업로드·저장 파일을 모두 제거하고 세션을 DRAFT로 되돌린다(수정·재시도용). */
     @Operation(summary = "세션 비우기 (원본 행·업로드·파일 모두 제거 후 DRAFT로 되돌림)")
     @DeleteMapping("/{ingestionId}/records")
     fun truncate(
         @PathVariable ingestionId: Long,
-    ): ApiResponse<IngestionState> = state(service.truncate(ingestionId))
+    ): ApiResponse<IngestionState> {
+        val ingestion = service.truncate(ingestionId)
+
+        return state(ingestion)
+    }
 
     /**
      * 바뀐 뒤의 세션 현황 — 현황 스트림이 흘리는 것과 **같은 타입**이라, 화면은 자기 요청의 응답으로
      * 받든 스트림으로 받든 같은 모델을 다룬다. 변경 트랜잭션은 이미 커밋됐으므로 다시 읽어 조립한다.
      */
-    private fun state(ingestion: Ingestion): ApiResponse<IngestionState> =
-        ApiResponse.ok(data = IngestionState(readService.getStatus(requireNotNull(ingestion.id))))
+    private fun state(ingestion: Ingestion): ApiResponse<IngestionState> {
+        val status = readService.getStatus(requireNotNull(ingestion.id))
+
+        return ApiResponse.ok(data = IngestionState(status))
+    }
 
     private fun MultipartFile.toFileInput() = IngestionFileInput(
         fileName = originalFilename ?: "unknown",
