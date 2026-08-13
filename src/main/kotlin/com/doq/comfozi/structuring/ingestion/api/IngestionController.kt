@@ -81,6 +81,32 @@ class IngestionController(
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
+    /** 원본 행 1건 삭제 (수기·파일 무관). */
+    @Operation(summary = "원본 행 1건 삭제")
+    @DeleteMapping("/{ingestionId}/records/{recordId}")
+    fun deleteRecord(
+        @PathVariable ingestionId: Long,
+        @PathVariable recordId: Long,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.deleteRecord(ingestionId, recordId)
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
+    /**
+     * 수기 행 수정 — 9필드를 **전체 교체**한다(부분 갱신 아님). 검증은 추가 때와 동일.
+     * 파일 출처 행은 원본 근거라 대상이 아니다(409) — 구조화 이후 검수 단계에서 수정한다.
+     */
+    @Operation(summary = "수기 행 수정 (9필드 전체 교체)")
+    @PutMapping("/{ingestionId}/records/{recordId}")
+    fun updateManualRecord(
+        @PathVariable ingestionId: Long,
+        @PathVariable recordId: Long,
+        @Valid @RequestBody request: IngestionManualRecordRequest,
+    ): ApiResponse<IngestionRecordResponse> {
+        val record = service.updateManualRecord(ingestionId, recordId, request.toInput())
+        return ApiResponse.ok(data = IngestionRecordResponse(record))
+    }
+
     /** 업로드 1건 삭제 — 그 업로드에서 나온 행·저장 원본까지. 다른 업로드의 행과 수기 행은 남는다. */
     @Operation(summary = "업로드 1건 삭제 (해당 업로드의 원본 행·저장 파일 포함)")
     @DeleteMapping("/{ingestionId}/uploads/{uploadId}")

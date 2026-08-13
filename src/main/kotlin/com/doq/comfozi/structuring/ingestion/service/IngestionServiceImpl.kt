@@ -1,6 +1,7 @@
 package com.doq.comfozi.structuring.ingestion.service
 
 import com.doq.comfozi.structuring.ingestion.domain.Ingestion
+import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
 import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUpload
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadStatus
@@ -79,6 +80,31 @@ class IngestionServiceImpl(
         session.reopen() // 입력이 바뀜 → 재검증 필요
         return session
     }
+
+    @Transactional
+    override fun deleteRecord(ingestionId: Long, recordId: Long): Ingestion {
+        val session = editableSession(ingestionId)
+
+        recordRepository.delete(ownedRecord(ingestionId, recordId))
+        session.reopen() // 입력이 바뀜 → 재검증 필요
+        return session
+    }
+
+    @Transactional
+    override fun updateManualRecord(ingestionId: Long, recordId: Long, input: IngestionManualInput): IngestionRecord {
+        val session = editableSession(ingestionId)
+
+        val record = ownedRecord(ingestionId, recordId)
+        record.replaceContent(input.toContent()) // 파일 출처면 도메인이 거부(409)
+        session.reopen() // 입력이 바뀜 → 재검증 필요
+        return record
+    }
+
+    /** 해당 세션에 속한 원본 행 — 없거나 다른 세션의 행이면 없는 것으로 취급(404). */
+    private fun ownedRecord(ingestionId: Long, recordId: Long): IngestionRecord =
+        recordRepository.findByIdOrNull(recordId)
+            ?.takeIf { it.ingestionId == ingestionId }
+            ?: throw NoSuchElementException("세션 $ingestionId 에 없는 원본 행 $recordId")
 
     private fun ingestBatchFile(input: IngestionBatchFileInput, ingestionId: Long? = null): Ingestion {
         val bytes = input.content.readBytes() // 저장·파싱 두 번 쓰므로 버퍼링

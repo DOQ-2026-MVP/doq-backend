@@ -51,12 +51,18 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 | POST | `/{ingestionId}/uploads` | 기존 DRAFT 세션에 파일 이어붙임 |
 | POST | `/records` | 수기 입력들로 새 세션 |
 | POST | `/{ingestionId}/records` | 수기 입력 이어붙임 |
+| PUT | `/{ingestionId}/records/{recordId}` | 수기 행 수정 (9필드 전체 교체) |
+| DELETE | `/{ingestionId}/records/{recordId}` | 원본 행 1건 삭제 (수기·파일 무관) |
 | DELETE | `/{ingestionId}/uploads/{uploadId}` | 업로드 1건 삭제 (해당 업로드의 원본 행·저장 파일 포함) |
 | DELETE | `/{ingestionId}/records` | 세션 비우기(truncate → DRAFT 복귀) |
 | GET | `/{ingestionId}` | 세션 + 업로드 현황 + 원본 행 조회 |
 
-입력 변경(삭제)은 **완료(STRUCTURED) 세션에서는 409** 다 — 구조화 이후의 수정은 검수(inspection) 도메인의 몫이다.
+입력 변경(삭제·수정)은 **완료(STRUCTURED) 세션에서는 409** 다 — 구조화 이후의 수정은 검수(inspection) 도메인의 몫이다.
 DRAFT·FAILED 세션에서는 가능하며, 입력이 바뀌었으므로 세션은 DRAFT 로 되돌아간다.
+
+**파일 출처 행은 수정할 수 없다(409).** 원문이 곧 원본 근거(관찰값)라 인입 단계에서 덮으면
+검수의 "관찰값 vs 수정값" 분리가 무의미해지기 때문 — 구조화 후 `PATCH /api/inspection/records/{id}` 로 고친다.
+삭제는 구조화 전이라 깨지는 불변식이 없어 출처와 무관하게 허용한다.
 
 #### 세션 조회 응답 — 입력 화면용 현황
 
