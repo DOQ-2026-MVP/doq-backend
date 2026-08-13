@@ -2,6 +2,7 @@ package com.doq.comfozi.structuring.ingestion.api
 
 import com.doq.comfozi.structuring.ingestion.awaitParsed
 import com.doq.comfozi.structuring.ingestion.manualInput
+import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
@@ -36,6 +37,7 @@ class IngestionEventStreamTest(
     @Autowired val mockMvc: MockMvc,
     @Autowired val service: IngestionService,
     @Autowired val uploadRepository: IngestionUploadRepository,
+    @Autowired val recordRepository: IngestionRecordRepository,
 ) {
 
     private val header = "문서ID,원본유형,공급사,원문 품목명,규격,단위,기존단가(원),변경단가(원),적용일"
@@ -168,6 +170,66 @@ class IngestionEventStreamTest(
         val received = awaitStream(stream, "RECORDS_ADDED")
         assertEquals(setOf(mine.toInt()), received.map { it.state()["ingestionId"] }.toSet())
         assertEquals(1, received.last().manuals().size) // 남의 행이 섞이지 않았다
+    }
+
+    @Test
+    fun `수기 행 수정도 흐른다`() {
+        val id = service.ingestManual(listOf(manualInput(docId = "MAN-1"))).id!!
+        val recordId = recordRepository.findByIngestionIdOrderByIdAsc(id).single().id!!
+        val stream = subscribe(id)
+
+        service.updateManualRecord(id, recordId, manualInput(docId = "MAN-1", rawItemName = "고친품목"))
+
+        val last = awaitStream(stream, "RECORD_UPDATED").last()
+        assertEquals(recordId.toInt(), last.change()["recordId"])
+
+        val manual = last.manuals().single() as Map<*, *>
+        assertEquals("고친품목", (manual["content"] as Map<*, *>)["rawItemName"]) // 고쳐진 원문이 실린다
+    }
+
+    @Test
+    fun `행 삭제도 흐른다`() {
+        val id = service.ingestManual(listOf(manualInput(docId = "MAN-1"), manualInput(docId = "MAN-2"))).id!!
+        val recordId = recordRepository.findByIngestionIdOrderByIdAsc(id).first().id!!
+        val stream = subscribe(id)
+
+        service.deleteRecord(id, recordId)
+
+        val last = awaitStream(stream, "RECORD_DELETED").last()
+        assertEquals(recordId.toInt(), last.change()["recordId"])
+        assertEquals(1, last.manuals().size) // 지운 행이 빠진 현황
+    }
+
+    @Test
+    fun `업로드 삭제도 흐른다`() {
+        val id = service.createSession().id!!
+        val input = IngestionFileInput("test.csv", "text/csv", csv.byteInputStream())
+        service.ingestFile(input, id)
+        uploadRepository.awaitParsed(id)
+        val uploadId = uploadRepository.findByIngestionIdOrderByIdAsc(id).single().id!!
+        val stream = subscribe(id)
+
+        service.deleteUpload(id, uploadId)
+
+        val last = awaitStream(stream, "UPLOAD_DELETED").last()
+        assertEquals(uploadId.toInt(), last.change()["uploadId"])
+        assertEquals(emptyList<Any>(), last.state()["uploads"]) // 지운 뒤 현황
+    }
+
+    @Test
+    fun `세션 비우기도 흐른다`() {
+        val id = service.ingestManual(listOf(manualInput(docId = "MAN-1"))).id!!
+        val input = IngestionFileInput("test.csv", "text/csv", csv.byteInputStream())
+        service.ingestFile(input, id)
+        uploadRepository.awaitParsed(id)
+        val stream = subscribe(id)
+
+        service.truncate(id)
+
+        val last = awaitStream(stream, "SESSION_CLEARED").last()
+        assertEquals(emptyList<Any>(), last.state()["uploads"])
+        assertEquals(emptyList<Any>(), last.manuals())
+        assertEquals("DRAFT", last.state()["status"])
     }
 
     @Test

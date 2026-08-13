@@ -16,10 +16,14 @@ data class IngestionStateEvent(
     val change: IngestionChangeResponse?,
 )
 
-/** 이벤트를 보낸 계기 — 화면 알림 문구용. 결과 상태는 [IngestionStateEvent.state]에 있다. */
+/**
+ * 이벤트를 보낸 계기 — 화면 알림 문구용. 결과 상태는 [IngestionStateEvent.state]에 있다.
+ * [uploadId]/[recordId]/[addedCount]는 계기에 해당하는 것만 채워진다.
+ */
 data class IngestionChangeResponse(
     val type: Type,
     val uploadId: Long? = null,
+    val recordId: Long? = null,
     val addedCount: Int? = null,
 ) {
     enum class Type {
@@ -29,11 +33,24 @@ data class IngestionChangeResponse(
         /** 업로드 처리 끝남 (성공·실패는 해당 업로드의 status). */
         UPLOAD_SETTLED,
 
+        /** 업로드 삭제됨 (그 업로드의 행·저장 원본까지). */
+        UPLOAD_DELETED,
+
         /** 수기 행 저장됨. */
         RECORDS_ADDED,
+
+        /** 수기 행 원문이 교체됨. */
+        RECORD_UPDATED,
+
+        /** 원본 행 1건 삭제됨. */
+        RECORD_DELETED,
+
+        /** 세션이 비워짐. */
+        SESSION_CLEARED,
     }
 
     companion object {
+        /** `when` 이 분기를 강제하므로, 계기가 늘면 여기서 컴파일이 깨져 빠뜨릴 수 없다. */
         fun of(change: IngestionChange): IngestionChangeResponse = when (change) {
             is IngestionChange.UploadReceived ->
                 IngestionChangeResponse(Type.UPLOAD_RECEIVED, uploadId = change.uploadId)
@@ -41,8 +58,20 @@ data class IngestionChangeResponse(
             is IngestionChange.UploadSettled ->
                 IngestionChangeResponse(Type.UPLOAD_SETTLED, uploadId = change.uploadId)
 
+            is IngestionChange.UploadDeleted ->
+                IngestionChangeResponse(Type.UPLOAD_DELETED, uploadId = change.uploadId)
+
             is IngestionChange.RecordsAdded ->
                 IngestionChangeResponse(Type.RECORDS_ADDED, addedCount = change.addedCount)
+
+            is IngestionChange.RecordUpdated ->
+                IngestionChangeResponse(Type.RECORD_UPDATED, recordId = change.recordId)
+
+            is IngestionChange.RecordDeleted ->
+                IngestionChangeResponse(Type.RECORD_DELETED, recordId = change.recordId)
+
+            IngestionChange.SessionCleared ->
+                IngestionChangeResponse(Type.SESSION_CLEARED)
         }
     }
 }

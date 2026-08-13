@@ -84,6 +84,8 @@ class IngestionServiceImpl(
         val record = ownedRecord(ingestionId, recordId)
         record.replaceContent(input.toContent()) // 파일 출처면 도메인이 거부(409)
         session.reopen() // 입력이 바뀜 → 재검증 필요
+
+        publishChange(session, IngestionChange.RecordUpdated(recordId))
         return record
     }
 
@@ -93,6 +95,8 @@ class IngestionServiceImpl(
 
         recordRepository.delete(ownedRecord(ingestionId, recordId))
         session.reopen() // 입력이 바뀜 → 재검증 필요
+
+        publishChange(session, IngestionChange.RecordDeleted(recordId))
         return session
     }
 
@@ -104,8 +108,9 @@ class IngestionServiceImpl(
         recordRepository.deleteByUploadRefUploadId(uploadId) // FK(fk_record_upload) 때문에 행 먼저
         uploadRepository.delete(upload)
         fileStorage.delete(upload.storageKey)
-
         session.reopen() // 입력이 바뀜 → 재검증 필요
+
+        publishChange(session, IngestionChange.UploadDeleted(uploadId))
         return session
     }
 
@@ -118,6 +123,8 @@ class IngestionServiceImpl(
         uploadRepository.deleteAll(uploads)
         recordRepository.deleteByIngestionId(ingestionId) // 수기·파일 행 모두
         session.reopen() // 입력 비움 → 재검증 필요, DRAFT로
+
+        publishChange(session, IngestionChange.SessionCleared)
         return session
     }
 
