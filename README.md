@@ -46,9 +46,15 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 **파일 업로드는 접수까지만 동기다.** 원본을 보관하고 응답한 뒤, 커밋 이후 `IngestionUploadStored`
 이벤트를 받아 별도 스레드에서 파싱·추출한다. 그래서 업로드가 끝난 시점에도 아직 행이 없을 수 있고
 (`PARSING`), 처리 실패는 예외가 아니라 상태(`PARSE_FAILED` + 사유)로 남는다. 취합 파일과 원본 문서가
-같은 상태 어휘를 쓰는데, 화면 입장에서는 둘 다 "이 파일이 행이 됐는가"이기 때문이다 — 원본 문서는
-행 자동 추출을 지원하지 않아 행 0건으로 `PARSED` 가 된다(추출이 붙을 자리는
-`IngestionUploadStoredListener` 의 문서 분기).
+같은 상태 어휘를 쓰는데, 화면 입장에서는 둘 다 "이 파일이 행이 됐는가"이기 때문이다.
+
+원본 문서 중 **PDF 는 항목을 추출한다**(추가 요건). 제공 문서가 전부 인쇄 산출물이라 텍스트 레이어가
+온전해서, PDFBox 로 글자를 뽑아 그 텍스트만 LLM 에 넘긴다 — 문서를 통째로 보내지 않아 토큰·지연이
+적다. 한 문서에서 여러 항목이 나오는 게 정상이고, 같은 파일명을 공유하며 문서 안 순번으로 구분한다.
+공문 본문에 없는 `문서ID`·`원본유형` 은 시스템이 부여한다 — 비워 두면 추출한 모든 항목이 필수값
+누락으로 떨어진다. 추출기는 `ANTHROPIC_API_KEY` 가 있을 때만 켜지고, 없으면 PDF 는 보관만 된다
+(행 0건 `PARSED`). 이미지(PNG·JPEG)는 촬영본이라 전처리가 필요해 아직 미지원이며, 같은 분기
+(`IngestionUploadStoredListener` 의 문서 분기)에 얹으면 된다.
 
 처리가 비동기라 응답만으로는 결과를 알 수 없으므로 세션 현황을 **SSE 로 흘린다**
 (`IngestionEventStream`). 흐르는 것은 델타가 아니라 그때의 현황 전체라, 받는 쪽은 순서·유실·재연결을
@@ -86,6 +92,7 @@ src/main/kotlin/com/doq/
    │  ├─ repository/                  Spring Data JPA 리포지토리 3종 (IngestionRepositories.kt 한 파일)
    │  ├─ service/                     IngestionService(변경)·IngestionReadService(조회) + 입력 커맨드 타입 ·
    │  │                               업로드 후속 처리(IngestionUploadStored 이벤트 → Listener → 파싱 워커)
+   │  ├─ extraction/                  원본 문서(PDF) → 증빙 항목 (PDFBox 텍스트 추출 + LLM 추출기 포트)
    │  └─ support/                     CSV/XLSX 파서·취합 파일 컬럼 스키마(BatchFileColumn)·
    │                                  업로드 파일 분류(매직바이트)·FileStorage 포트와 로컬 구현
    ├─ structuring/                    ── 구조화(기계) ── 원본 행 → 관찰값
