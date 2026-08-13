@@ -26,7 +26,7 @@ class StructuringControllerTest(
 ) {
 
     private fun draftWithRecords(): Long =
-        service.createFromManualRecords(listOf(manualInput(docId = "A"))).id!!
+        service.ingestManual(listOf(manualInput(docId = "A"))).id!!
 
     @Test
     fun `POST structuring {id} - DRAFT 세션 구조화 + 200 + STRUCTURED 전이`() {

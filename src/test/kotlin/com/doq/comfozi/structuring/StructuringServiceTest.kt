@@ -22,7 +22,7 @@ class StructuringServiceTest(
 
     @Test
     fun `struct는 세션 구조화 완료본을 StructuredRecords 배치로 발행한다`(events: ApplicationEvents) {
-        val session = ingestionService.createFromManualRecords(
+        val session = ingestionService.ingestManual(
             listOf(manualInput("A"), manualInput("B")),
         )
 

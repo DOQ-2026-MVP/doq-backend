@@ -32,7 +32,7 @@ class IngestionServiceTest(
             DOC-016,IMAGE,푸른포장(예시),투명리드500,500EA/BOX,BOX,39000,41000,
         """.trimIndent()
 
-        val ingestion = service.createFromFile(
+        val ingestion = service.ingestFile(
             IngestionFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
         )
 
@@ -56,7 +56,7 @@ class IngestionServiceTest(
 
     @Test
     fun `수기 입력으로 새 DRAFT 세션에 uploadRef 없는 행이 적재된다`() {
-        val session = service.createFromManualRecords(
+        val session = service.ingestManual(
             listOf(
                 IngestionManualInput(
                     docId = "MAN-1",
@@ -96,7 +96,7 @@ class IngestionServiceTest(
             bos.toByteArray()
         }
 
-        val ingestion = service.createFromFile(
+        val ingestion = service.ingestFile(
             IngestionFileInput(fileName = "golden.xlsx", contentType = null, content = bytes.inputStream()),
         )
 

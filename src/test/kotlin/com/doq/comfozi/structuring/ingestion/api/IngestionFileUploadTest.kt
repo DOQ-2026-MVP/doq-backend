@@ -168,7 +168,7 @@ class IngestionFileUploadTest(
 
     @Test
     fun `기존 세션에 이어붙는다`() {
-        val id = service.createFromManualRecords(listOf(manualInput(docId = "MAN-1"))).id!!
+        val id = service.ingestManual(listOf(manualInput(docId = "MAN-1"))).id!!
 
         mockMvc.perform(multipart("/api/ingestion/$id/uploads").file(pdf())).andExpect(status().isCreated)
 

@@ -36,10 +36,10 @@ class IngestionTruncateTest(
 
     /** 파일 업로드 + 수기 입력이 함께 담긴 세션을 만들고 id를 돌려준다. */
     private fun seed(): Long {
-        val session = service.createFromFile(
+        val session = service.ingestFile(
             IngestionFileInput(fileName = "test.csv", contentType = "text/csv", content = csv.byteInputStream()),
         )
-        service.continueFromManualRecords(session.id!!, listOf(manualInput(docId = "MAN-1", rawItemName = "수기품목")))
+        service.ingestManual(listOf(manualInput(docId = "MAN-1", rawItemName = "수기품목")), session.id!!)
         return session.id!!
     }
 
