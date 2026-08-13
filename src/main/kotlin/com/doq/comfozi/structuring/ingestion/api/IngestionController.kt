@@ -18,6 +18,9 @@ import org.springframework.web.multipart.MultipartFile
  * create(세션 신규) / continue(기존 DRAFT 세션에 이어붙임)를 엔드포인트로 분리한다.
  * continue는 대상 세션을 URL path(`{ingestionId}`)로 지정하며, 존재하지 않거나 DRAFT가 아니면 서비스가 예외.
  * 값은 원문 그대로 저장하며 검증/정규화는 하지 않는다(후속 structuring).
+ *
+ * 메소드 순서는 [IngestionService]와 맞춘다 — **적재(입력 종류별 create·continue 쌍) → 수정 → 삭제**,
+ * 삭제는 대상 범위가 좁은 것부터(행 → 업로드 → 세션 전체).
  */
 @Tag(name = "인입(Ingestion)", description = "파일 업로드·수기 입력을 세션에 적재하는 인입 API")
 @RestController
@@ -100,27 +103,6 @@ class IngestionController(
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
-    /** 세션 비우기(truncate) — 원본 행(수기·파일)·업로드·저장 파일을 모두 제거하고 세션을 DRAFT로 되돌린다(수정·재시도용). */
-    @Operation(summary = "세션 비우기 (원본 행·업로드·파일 모두 제거 후 DRAFT로 되돌림)")
-    @DeleteMapping("/{ingestionId}/records")
-    fun truncate(
-        @PathVariable ingestionId: Long,
-    ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.truncate(ingestionId)
-        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
-    }
-
-    /** 원본 행 1건 삭제 (수기·파일 무관). */
-    @Operation(summary = "원본 행 1건 삭제")
-    @DeleteMapping("/{ingestionId}/records/{recordId}")
-    fun deleteRecord(
-        @PathVariable ingestionId: Long,
-        @PathVariable recordId: Long,
-    ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.deleteRecord(ingestionId, recordId)
-        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
-    }
-
     /**
      * 수기 행 수정 — 9필드를 **전체 교체**한다(부분 갱신 아님). 검증은 추가 때와 동일.
      * 파일 출처 행은 원본 근거라 대상이 아니다(409) — 구조화 이후 검수 단계에서 수정한다.
@@ -136,6 +118,17 @@ class IngestionController(
         return ApiResponse.ok(data = IngestionRecordResponse(record))
     }
 
+    /** 원본 행 1건 삭제 (수기·파일 무관). */
+    @Operation(summary = "원본 행 1건 삭제")
+    @DeleteMapping("/{ingestionId}/records/{recordId}")
+    fun deleteRecord(
+        @PathVariable ingestionId: Long,
+        @PathVariable recordId: Long,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.deleteRecord(ingestionId, recordId)
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
     /** 업로드 1건 삭제 — 그 업로드에서 나온 행·저장 원본까지. 다른 업로드의 행과 수기 행은 남는다. */
     @Operation(summary = "업로드 1건 삭제 (해당 업로드의 원본 행·저장 파일 포함)")
     @DeleteMapping("/{ingestionId}/uploads/{uploadId}")
@@ -144,6 +137,16 @@ class IngestionController(
         @PathVariable uploadId: Long,
     ): ApiResponse<IngestionMutationResponse> {
         val ingestion = service.deleteUpload(ingestionId, uploadId)
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
+    /** 세션 비우기(truncate) — 원본 행(수기·파일)·업로드·저장 파일을 모두 제거하고 세션을 DRAFT로 되돌린다(수정·재시도용). */
+    @Operation(summary = "세션 비우기 (원본 행·업로드·파일 모두 제거 후 DRAFT로 되돌림)")
+    @DeleteMapping("/{ingestionId}/records")
+    fun truncate(
+        @PathVariable ingestionId: Long,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.truncate(ingestionId)
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
