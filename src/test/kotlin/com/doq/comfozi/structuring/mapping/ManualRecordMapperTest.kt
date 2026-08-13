@@ -1,8 +1,8 @@
 package com.doq.comfozi.structuring.mapping
 
-import com.doq.comfozi.structuring.ingestion.domain.IngestionContent
-import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
-import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
+import com.doq.comfozi.ingestion.domain.IngestionContent
+import com.doq.comfozi.ingestion.domain.IngestionRecord
+import com.doq.comfozi.ingestion.domain.IngestionUploadType
 import com.doq.common.config.AppObjectMapper
 import kotlin.test.Test
 import kotlin.test.assertEquals

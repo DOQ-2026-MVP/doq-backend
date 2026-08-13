@@ -1,7 +1,7 @@
 package com.doq.comfozi.structuring
 
 import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag
-import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
+import com.doq.comfozi.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.structuring.mapping.MappedRecord
 
 /**

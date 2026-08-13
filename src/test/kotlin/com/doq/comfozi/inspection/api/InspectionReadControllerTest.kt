@@ -2,8 +2,8 @@ package com.doq.comfozi.inspection.api
 
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.structuring.StructuringService
-import com.doq.comfozi.structuring.ingestion.manualInput
-import com.doq.comfozi.structuring.ingestion.service.IngestionService
+import com.doq.comfozi.ingestion.manualInput
+import com.doq.comfozi.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest

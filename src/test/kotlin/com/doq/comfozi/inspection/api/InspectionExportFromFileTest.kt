@@ -4,10 +4,10 @@ import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.inspection.service.InspectionReviewService
 import com.doq.comfozi.structuring.StructuringService
-import com.doq.comfozi.structuring.ingestion.awaitParsed
-import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
-import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
-import com.doq.comfozi.structuring.ingestion.service.IngestionService
+import com.doq.comfozi.ingestion.awaitParsed
+import com.doq.comfozi.ingestion.repository.IngestionUploadRepository
+import com.doq.comfozi.ingestion.service.IngestionFileInput
+import com.doq.comfozi.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest

@@ -4,8 +4,8 @@ import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.inspection.service.InspectionReviewService
 import com.doq.comfozi.structuring.StructuringService
-import com.doq.comfozi.structuring.ingestion.manualInput
-import com.doq.comfozi.structuring.ingestion.service.IngestionService
+import com.doq.comfozi.ingestion.manualInput
+import com.doq.comfozi.ingestion.service.IngestionService
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.not
 import org.hamcrest.Matchers.notNullValue

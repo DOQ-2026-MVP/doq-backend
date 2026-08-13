@@ -7,7 +7,7 @@ import com.doq.comfozi.inspection.domain.InspectionChangeType
 import com.doq.comfozi.inspection.domain.InspectionRecord
 import com.doq.comfozi.inspection.domain.InspectionRecordStatus
 import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag
-import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
+import com.doq.comfozi.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.structuring.mapping.MappedRecord
 import java.time.LocalDateTime
 
