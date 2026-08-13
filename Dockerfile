@@ -22,4 +22,7 @@ COPY ${JAR} /app/app.jar
 
 USER doq
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]
+# 힙을 컨테이너 한도의 60% 로 둔다. 남는 40% 는 힙 밖에서 쓰는 몫이다 —
+# 메타스페이스·스레드·코드캐시에 더해 PDFBox 문서 버퍼와 OCR 자식 프로세스(tesseract, 이미지당
+# 100~150MB)가 여기서 나간다. 75% 로 두면 이미지 업로드가 대용량 파싱과 겹칠 때 OOM kill 된다.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60.0", "-jar", "/app/app.jar"]
