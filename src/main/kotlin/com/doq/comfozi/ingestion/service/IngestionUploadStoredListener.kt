@@ -1,6 +1,9 @@
 package com.doq.comfozi.ingestion.service
 
+import com.doq.comfozi.ingestion.extraction.DocumentTextExtractor
+import com.doq.comfozi.ingestion.extraction.ImageTextExtractor
 import com.doq.comfozi.ingestion.extraction.ItemExtractor
+import com.doq.comfozi.ingestion.extraction.PdfTextExtractor
 import com.doq.comfozi.ingestion.extraction.TableTextItemExtractor
 import com.doq.comfozi.ingestion.support.ClassifiedFile
 import com.doq.common.config.AsyncConfig
@@ -22,7 +25,9 @@ import org.springframework.transaction.event.TransactionalEventListener
 @Component
 class IngestionUploadStoredListener(
     private val parseService: IngestionUploadParseService,
-    // 추출기는 API 키가 있을 때만 존재한다 — 없어도 부팅·업로드는 정상이어야 한다
+    private val pdfTextExtractor: PdfTextExtractor,
+    private val imageTextExtractor: ImageTextExtractor,
+    // LLM 추출기는 API 키가 있을 때만 존재한다 — 없어도 부팅·업로드는 정상이어야 한다
     private val itemExtractor: ObjectProvider<ItemExtractor>,
 ) {
 
@@ -42,26 +47,30 @@ class IngestionUploadStoredListener(
     }
 
     /**
-     * 원본 문서에서 항목을 뽑는다 — 지금은 **PDF 만** 지원한다.
+     * 원본 문서에서 항목을 뽑는다 — PDF 는 텍스트 레이어를, 이미지는 OCR 을 거쳐 같은 길로 간다.
      *
-     * 추출기(LLM)가 꺼져 있어도 행은 만든다 — [TableTextItemExtractor] 가 규칙으로 표를 읽고,
+     * LLM 추출기가 꺼져 있어도 행은 만든다 — [TableTextItemExtractor] 가 규칙으로 표를 읽고,
      * 그마저 실패하면 원문을 한 행에 담는다. 어느 쪽이든 관찰값이라 검수에서 확인·수정된다.
      *
-     * 이미지(PNG·JPEG)는 회전·원근 왜곡이 있는 촬영본이라 전처리가 필요해 아직 읽을 텍스트조차
-     * 없다 — 담을 것이 없으므로 행 없이 완료 처리한다("기계가 할 일이 없다"는 뜻이지 실패가 아니다).
-     *
-     * TODO: 이미지 추출(OCR/vision)이 붙을 자리. 여기서 행을 만들면 상태·실패 사유·현황 스트림은
-     *  그대로 쓴다.
+     * 글자를 꺼낼 방법 자체가 없으면(OCR 미설치) 행 없이 완료 처리한다 — 설치를 안 한 것은
+     * 파일 문제가 아니므로 실패(PARSE_FAILED)가 아니다.
      */
     private fun extract(uploadId: Long, classified: ClassifiedFile.Document) {
-        if (classified.format != PDF) {
-            log.debug("업로드 {} 는 {} 원본 — 읽어낼 텍스트가 없어 행을 만들지 않는다", uploadId, classified.format)
+        val textExtractor = textExtractorFor(classified.format)
+        if (textExtractor == null) {
+            log.debug("업로드 {} 는 {} 원본 — 글자를 꺼낼 방법이 없어 행을 만들지 않는다", uploadId, classified.format)
             parseService.markParsedWithoutRecords(uploadId)
             return
         }
 
         val extractor = itemExtractor.getIfAvailable() ?: TableTextItemExtractor
-        parseService.extract(uploadId, extractor, sourceType = classified.format)
+        parseService.extract(uploadId, textExtractor, extractor, sourceType = classified.format)
+    }
+
+    /** 형식별로 글자를 꺼내는 방법. OCR 이 설치돼 있지 않으면 이미지는 방법이 없다(null). */
+    private fun textExtractorFor(format: String): DocumentTextExtractor? = when (format) {
+        PDF -> pdfTextExtractor
+        else -> imageTextExtractor.takeIf { it.isAvailable }
     }
 
     /** 어느 경로든 실패는 같은 방식으로 남긴다 — 예외를 밖으로 던지면 업로드가 PARSING 에 갇힌다. */

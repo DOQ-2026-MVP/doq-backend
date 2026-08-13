@@ -56,6 +56,11 @@ app:
       timeout-millis: 1800000
       heartbeat-millis: 15000
       queue-capacity: 1000
+    ocr:
+      # 이미지 원본에서 글자를 뽑는 외부 실행 파일. 없으면 이미지는 보관만 된다(부팅은 정상).
+      command: ${OCR_COMMAND:tesseract}
+      languages: ${OCR_LANGUAGES:kor+eng}
+      timeout-seconds: 60
   structuring:
     handoff:
       # 구조화 결과 → 검수 인박스 인계 워커 풀 (요청 트랜잭션에서 떼어냄)

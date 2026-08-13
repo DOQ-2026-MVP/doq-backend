@@ -12,9 +12,9 @@ import org.springframework.stereotype.Component
  * 걸러진다**: 빈 텍스트를 넘겨 LLM 이 지어내게 두는 것보다, 못 읽었다고 실패로 남기는 편이 낫다.
  */
 @Component
-class PdfTextExtractor {
+class PdfTextExtractor : DocumentTextExtractor {
 
-    fun extract(pdfBytes: ByteArray): String {
+    override fun extract(pdfBytes: ByteArray): String {
         val text = try {
             Loader.loadPDF(pdfBytes).use { PDFTextStripper().getText(it) }
         } catch (e: Exception) {

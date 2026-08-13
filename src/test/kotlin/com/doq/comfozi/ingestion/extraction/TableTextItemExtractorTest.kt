@@ -61,6 +61,36 @@ class TableTextItemExtractorTest {
     }
 
     @Test
+    fun `적용일자 칸이 비어 있어도 행을 버리지 않는다`() {
+        // 요구사항 DOC-016 — 적용일자 미정. 버리면 항목이 통째로 사라진다
+        val text = """
+            공 급 자  푸른포장 / 담당 김수현
+            종이보울500 500EA/BOX BOX 52,000 55,000 2026-08-12
+            투명리드500 500EA/BOX BOX 39,000 41,000
+        """.trimIndent()
+
+        val items = TableTextItemExtractor.extract("거래명세서.png", text)
+
+        assertEquals(2, items.size)
+        assertEquals("푸른포장", items[0].supplier) // 발신 대신 공급자 를 쓰는 서식
+        assertEquals("2026-08-12", items[0].effectiveDate)
+        assertEquals("투명리드500" to "500EA/BOX", items[1].rawItemName to items[1].spec)
+        assertNull(items[1].effectiveDate) // 비어 있는 대로 → 필수값 누락으로 드러난다
+    }
+
+    @Test
+    fun `기존 변경 규격은 품목명과 갈리지 않고 통째로 규격이 된다`() {
+        // 요구사항 DOC-019 — 숫자 규칙만 쓰면 "냉동돈전지 기존" 이 품목명이 돼버린다
+        val text = "냉동돈전지 기존 10kg / 변경 9kg BOX 86,000 86,000 2026-08-15"
+
+        val item = TableTextItemExtractor.extract("규격변경.png", text).single()
+
+        assertEquals("냉동돈전지", item.rawItemName)
+        assertEquals("기존 10kg / 변경 9kg", item.spec) // 이 형태라야 spec_mismatch 가 물린다
+        assertEquals("86,000" to "86,000", item.priceBefore to item.priceAfter) // 동결
+    }
+
+    @Test
     fun `표를 못 읽으면 원문을 한 행으로 내려보낸다`() {
         val items = TableTextItemExtractor.extract("메모.pdf", "표가 없는 안내문입니다.\n감사합니다.")
 
