@@ -54,18 +54,29 @@ class IngestionServiceImpl(
 
     @Transactional
     override fun truncate(ingestionId: Long): Ingestion {
-        val session = ingestionRepository.findByIdOrNull(ingestionId)
-            ?: throw NoSuchElementException("알 수 없는 Ingestion 세션 $ingestionId")
-
-        check(session.status != IngestionStatus.STRUCTURED) {
-            "완료된(STRUCTURED) 세션은 비울 수 없음"
-        }
+        val session = editableSession(ingestionId)
 
         val uploads = uploadRepository.findByIngestionIdOrderByIdAsc(ingestionId)
         uploads.forEach { fileStorage.delete(it.storageKey) } // 저장 원본 정리
         uploadRepository.deleteAll(uploads)
         recordRepository.deleteByIngestionId(ingestionId) // 수기·파일 행 모두
         session.reopen() // 입력 비움 → 재검증 필요, DRAFT로
+        return session
+    }
+
+    @Transactional
+    override fun deleteUpload(ingestionId: Long, uploadId: Long): Ingestion {
+        val session = editableSession(ingestionId)
+
+        val upload = uploadRepository.findByIdOrNull(uploadId)
+            ?.takeIf { it.ingestionId == ingestionId } // 다른 세션의 업로드는 없는 것으로 취급
+            ?: throw NoSuchElementException("세션 $ingestionId 에 없는 업로드 $uploadId")
+
+        recordRepository.deleteByUploadRefUploadId(uploadId) // FK(fk_record_upload) 때문에 행 먼저
+        uploadRepository.delete(upload)
+        fileStorage.delete(upload.storageKey)
+
+        session.reopen() // 입력이 바뀜 → 재검증 필요
         return session
     }
 
@@ -97,6 +108,20 @@ class IngestionServiceImpl(
         val ingestion = resolveDraftSession(ingestionId)
         recordRepository.saveAll(inputs.map { it.toEntity(ingestion.id!!) })
         return ingestion
+    }
+
+    /**
+     * 입력을 지우거나 고칠 수 있는 세션 — 없으면 404, 완료(STRUCTURED)면 409.
+     * 구조화 이후의 수정은 인입이 아니라 검수(inspection) 도메인의 몫이다.
+     */
+    private fun editableSession(ingestionId: Long): Ingestion {
+        val session = ingestionRepository.findByIdOrNull(ingestionId)
+            ?: throw NoSuchElementException("알 수 없는 Ingestion 세션 $ingestionId")
+
+        check(session.status != IngestionStatus.STRUCTURED) {
+            "완료된(STRUCTURED) 세션의 입력은 변경할 수 없음"
+        }
+        return session
     }
 
     /** ingestionId가 있으면 기존 세션(없으면 예외), 없으면 새 세션. 어느 쪽이든 DRAFT여야 추가 가능. */
