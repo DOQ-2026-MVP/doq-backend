@@ -24,7 +24,7 @@ class InspectionReadControllerTest(
 
     /** 세션 하나를 구조화해 검수를 만들고 (ingestionId, inspectionId)를 돌려준다. */
     private fun structured(): Pair<Long, Long> {
-        val session = ingestionService.createFromManualRecords(
+        val session = ingestionService.ingestManual(
             listOf(manualInput(docId = "DOC-1"), manualInput(docId = "DOC-2")),
         )
         structuringService.struct(session.id!!)

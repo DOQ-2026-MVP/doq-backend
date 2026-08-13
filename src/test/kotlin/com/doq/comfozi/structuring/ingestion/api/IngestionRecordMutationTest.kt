@@ -40,11 +40,11 @@ class IngestionRecordMutationTest(
 
     /** 파일 1행 + 수기 2행이 담긴 세션. */
     private fun seed(): Long {
-        val session = service.createFromFile(
+        val session = service.ingestFile(
             IngestionFileInput("test.csv", "text/csv", csv.byteInputStream()),
         )
         val id = session.id!!
-        service.continueFromManualRecords(id, listOf(manualInput(docId = "MAN-1"), manualInput(docId = "MAN-2")))
+        service.ingestManual(listOf(manualInput(docId = "MAN-1"), manualInput(docId = "MAN-2")), id)
         return id
     }
 

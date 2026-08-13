@@ -26,7 +26,7 @@ class IngestionReadControllerTest(
     private val goldenCsv: ByteArray =
         javaClass.getResourceAsStream("/fixtures/golden-20.csv")!!.readBytes()
 
-    private fun uploadGolden() = service.createFromFile(
+    private fun uploadGolden() = service.ingestFile(
         IngestionFileInput("golden-20.csv", "text/csv", goldenCsv.inputStream()),
     ).id!!
 
@@ -35,7 +35,7 @@ class IngestionReadControllerTest(
 
     @Test
     fun `GET 세션은 세션과 원본 행들을 반환한다`() {
-        val id = service.createFromManualRecords(
+        val id = service.ingestManual(
             listOf(manualInput(docId = "MAN-9", rawItemName = "임시")),
         ).id!!
 
@@ -63,7 +63,7 @@ class IngestionReadControllerTest(
     @Test
     fun `업로드 행 수는 수기 입력을 세지 않는다`() {
         val id = uploadGolden()
-        service.continueFromManualRecords(id, listOf(manualInput(docId = "MAN-1"), manualInput(docId = "MAN-2")))
+        service.ingestManual(listOf(manualInput(docId = "MAN-1"), manualInput(docId = "MAN-2")), id)
 
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(status().isOk)
@@ -86,7 +86,7 @@ class IngestionReadControllerTest(
 
     @Test
     fun `수기 행은 업로드도 원본 근거도 없다`() {
-        val id = service.createFromManualRecords(listOf(manualInput(docId = "MAN-9"))).id!!
+        val id = service.ingestManual(listOf(manualInput(docId = "MAN-9"))).id!!
 
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(status().isOk)

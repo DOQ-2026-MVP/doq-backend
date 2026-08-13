@@ -26,7 +26,7 @@ class InspectionIntakeTest(
 
     @Test
     fun `struct 결과가 Inspection 1개 + InspectionRecord N개로 영속된다`() {
-        val session = ingestionService.createFromManualRecords(
+        val session = ingestionService.ingestManual(
             listOf(manualInput(docId = "DOC-1"), manualInput(docId = "DOC-2")),
         )
 

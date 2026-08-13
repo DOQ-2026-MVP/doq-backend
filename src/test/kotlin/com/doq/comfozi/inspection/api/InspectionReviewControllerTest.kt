@@ -37,7 +37,7 @@ class InspectionReviewControllerTest(
 
     /** 세션을 구조화해 검수를 만들고 inspectionId를 돌려준다. DOC-1·DOC-2는 중복키가 같아 DOC-2가 중복 의심. */
     private fun structured(): Long {
-        val session = ingestionService.createFromManualRecords(
+        val session = ingestionService.ingestManual(
             listOf(manualInput(docId = "DOC-1"), manualInput(docId = "DOC-2")),
         )
         structuringService.struct(session.id!!)
@@ -46,7 +46,7 @@ class InspectionReviewControllerTest(
 
     /** DOC-1·DOC-2가 공급사만 달라 서로 중복이 아닌 세션. */
     private fun distinctSession(): Long {
-        val session = ingestionService.createFromManualRecords(
+        val session = ingestionService.ingestManual(
             listOf(manualInput(docId = "DOC-1", supplier = "가온"), manualInput(docId = "DOC-2", supplier = "새봄")),
         )
         structuringService.struct(session.id!!)
@@ -84,7 +84,7 @@ class InspectionReviewControllerTest(
     @Test
     fun `PATCH record - 편집으로 이상 해소 시 per-record 플래그 제거`() {
         // 규격+단위 불일치 레코드
-        val session = ingestionService.createFromManualRecords(
+        val session = ingestionService.ingestManual(
             listOf(manualInput(docId = "DOC-X", spec = "기존 1kg / 변경 4단", unit = "KG/단")),
         )
         structuringService.struct(session.id!!)

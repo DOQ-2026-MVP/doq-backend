@@ -35,7 +35,7 @@ class InspectionChangeLogTest(
 ) {
 
     private fun structured(): Long {
-        val session = ingestionService.createFromManualRecords(
+        val session = ingestionService.ingestManual(
             listOf(manualInput(docId = "DOC-1"), manualInput(docId = "DOC-2")),
         )
         structuringService.struct(session.id!!)
