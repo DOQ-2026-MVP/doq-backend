@@ -1,6 +1,7 @@
 package com.doq.comfozi.ingestion.service
 
 import com.doq.comfozi.ingestion.extraction.ItemExtractor
+import com.doq.comfozi.ingestion.extraction.RawTextItemExtractor
 import com.doq.comfozi.ingestion.support.ClassifiedFile
 import com.doq.common.config.AsyncConfig
 import org.slf4j.LoggerFactory
@@ -43,20 +44,24 @@ class IngestionUploadStoredListener(
     /**
      * 원본 문서에서 항목을 뽑는다 — 지금은 **PDF 만** 지원한다.
      *
-     * 이미지(PNG·JPEG)는 회전·원근 왜곡이 있는 촬영본이라 전처리가 필요해 아직 경로가 없고,
-     * 추출기는 API 키가 있을 때만 켜진다. 둘 중 하나라도 아니면 행 없이 완료 처리한다 —
-     * "기계가 할 일이 없다"는 뜻이지 실패가 아니므로 PARSE_FAILED 가 아니다.
+     * 추출기(LLM)가 꺼져 있어도 행은 만든다 — 읽어낸 원문을 [RawTextItemExtractor] 로 한 행에 담아
+     * 필수값 누락 상태로 검수에 올린다. 파일만 덩그러니 남기는 것보다 사람이 화면에서 보완할 수
+     * 있는 편이 낫다.
+     *
+     * 이미지(PNG·JPEG)는 회전·원근 왜곡이 있는 촬영본이라 전처리가 필요해 아직 읽을 텍스트조차
+     * 없다 — 담을 것이 없으므로 행 없이 완료 처리한다("기계가 할 일이 없다"는 뜻이지 실패가 아니다).
      *
      * TODO: 이미지 추출(OCR/vision)이 붙을 자리. 여기서 행을 만들면 상태·실패 사유·현황 스트림은
      *  그대로 쓴다.
      */
     private fun extract(uploadId: Long, classified: ClassifiedFile.Document) {
-        val extractor = itemExtractor.getIfAvailable()
-        if (classified.format != PDF || extractor == null) {
-            log.debug("업로드 {} 는 {} 원본 — 행 추출 미지원(추출기={})", uploadId, classified.format, extractor != null)
+        if (classified.format != PDF) {
+            log.debug("업로드 {} 는 {} 원본 — 읽어낼 텍스트가 없어 행을 만들지 않는다", uploadId, classified.format)
             parseService.markParsedWithoutRecords(uploadId)
             return
         }
+
+        val extractor = itemExtractor.getIfAvailable() ?: RawTextItemExtractor
         parseService.extract(uploadId, extractor, sourceType = classified.format)
     }
 

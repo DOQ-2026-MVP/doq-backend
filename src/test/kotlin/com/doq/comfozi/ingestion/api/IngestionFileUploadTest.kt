@@ -3,6 +3,7 @@ package com.doq.comfozi.ingestion.api
 import com.doq.comfozi.structuring.StructuringService
 import com.doq.comfozi.ingestion.awaitParsed
 import com.doq.comfozi.ingestion.domain.IngestionUploadStatus
+import com.doq.comfozi.ingestion.extraction.TestPdf
 import com.doq.comfozi.ingestion.manualInput
 import com.doq.comfozi.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.ingestion.repository.IngestionUploadRepository
@@ -24,6 +25,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -41,8 +43,8 @@ class IngestionFileUploadTest(
     @Autowired val recordRepository: IngestionRecordRepository,
 ) {
 
-    // 보관 경로는 매직 바이트까지만 보므로 뒤 내용은 파싱되지 않는다.
-    private val pdfBytes = "%PDF-1.7\n증빙 원본".toByteArray()
+    // PDF 는 실제로 열어 텍스트를 뽑으므로 진짜 PDF 여야 한다 (이 컨텍스트엔 LLM 추출기가 없다)
+    private val pdfBytes = TestPdf.of("PRICE CHANGE NOTICE", "Tomato Salsa 4kg/PK PK 32,000 33,600")
     private val pngBytes = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A) + "png".toByteArray()
     private val jpegBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte()) + "jpg".toByteArray()
 
@@ -65,7 +67,7 @@ class IngestionFileUploadTest(
     }
 
     @Test
-    fun `원본 문서는 보관되고 행은 만들어지지 않는다`() {
+    fun `추출기가 없어도 PDF 원문은 한 행으로 담긴다 - 검수에서 보완하도록`() {
         val id = upload(pdf())
 
         mockMvc.perform(get("/api/ingestion/$id"))
@@ -75,18 +77,24 @@ class IngestionFileUploadTest(
             .andExpect(jsonPath("$.data.uploads[0].type").value("FILE"))
             .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
             .andExpect(jsonPath("$.data.uploads[0].fileName").value("증빙.pdf"))
-            .andExpect(jsonPath("$.data.manuals.length()").value(0))
+            .andExpect(jsonPath("$.data.manuals.length()").value(0)) // 파일 출처라 수기 목록엔 없다
 
-        assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
+        // 읽어낸 원문이 품목명 자리에 담기고, 나머지는 비어 필수값 누락으로 검수에 올라간다
+        val record = recordRepository.findByIngestionIdOrderByIdAsc(id).single()
+        assertTrue(record.content.values["rawItemName"]!!.contains("PRICE CHANGE NOTICE"))
+        assertEquals("PDF", record.content.values["sourceType"])
+        assertNull(record.content.values["supplier"])
     }
 
     @Test
-    fun `PNG·JPEG도 보관 경로로 간다`() {
+    fun `PNG·JPEG는 읽어낼 텍스트가 없어 행을 만들지 않는다`() {
         for (f in listOf(file("a.png", "image/png", pngBytes), file("b.jpg", "image/jpeg", jpegBytes))) {
             val id = upload(f)
             mockMvc.perform(get("/api/ingestion/$id"))
                 .andExpect(jsonPath("$.data.uploads[0].type").value("FILE"))
                 .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
+
+            assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
         }
     }
 
@@ -114,7 +122,8 @@ class IngestionFileUploadTest(
             .andExpect(jsonPath("$.data.uploads[0].type").value("BATCH_FILE"))
             .andExpect(jsonPath("$.data.uploads[1].type").value("FILE"))
 
-        assertEquals(1, recordRepository.findByIngestionIdOrderByIdAsc(id).size) // 문서는 행을 안 만든다
+        // 표 파일 1행 + PDF 원문 1행
+        assertEquals(2, recordRepository.findByIngestionIdOrderByIdAsc(id).size)
     }
 
     @Test
@@ -240,8 +249,8 @@ class IngestionFileUploadTest(
     }
 
     @Test
-    fun `원본 문서만 있는 세션은 구조화할 행이 없어 400`() {
-        val id = upload(pdf())
+    fun `행을 못 만드는 원본 문서만 있는 세션은 구조화할 것이 없어 400`() {
+        val id = upload(file("a.png", "image/png", pngBytes)) // 이미지는 읽어낼 텍스트가 없다
 
         assertFailsWith<IllegalArgumentException> { structuringService.struct(id) }
     }

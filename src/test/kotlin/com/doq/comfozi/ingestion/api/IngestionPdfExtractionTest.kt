@@ -118,7 +118,7 @@ class IngestionPdfExtractionTest(
     }
 
     @Test
-    fun `문서ID·원본유형은 본문에 없으므로 시스템이 부여한다`() {
+    fun `문서ID·원본유형은 본문에 없으므로 시스템이 부여한다 (추출 대상이 아니다)`() {
         fakeExtractor.items = listOf(item("토마토살사S/O"), item("할라피뇨슬라이스"))
 
         val id = upload()
@@ -171,6 +171,15 @@ class IngestionPdfExtractionTest(
             .andExpect(jsonPath("$.data.uploads[0].status").value("PARSE_FAILED"))
             .andExpect(jsonPath("$.data.uploads[0].failureReason").value(containsString("표를 해석하지 못했습니다")))
         assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
+    }
+
+    @Test
+    fun `추출 항목에 docId 를 지어내라고 시키지 않는다`() {
+        // ExtractedItem 에 docId 필드가 없어서 모델이 값을 넣을 자리 자체가 없다
+        assertEquals(
+            false,
+            ExtractedItem::class.java.declaredFields.any { it.name == "docId" || it.name == "sourceType" },
+        )
     }
 
     @Test
