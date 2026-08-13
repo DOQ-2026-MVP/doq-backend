@@ -8,7 +8,7 @@ import com.doq.comfozi.ingestion.domain.IngestionUploadStatus
 import com.doq.comfozi.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.ingestion.extraction.ExtractedItem
 import com.doq.comfozi.ingestion.extraction.ItemExtractor
-import com.doq.comfozi.ingestion.extraction.PdfTextExtractor
+import com.doq.comfozi.ingestion.extraction.DocumentTextExtractor
 import com.doq.comfozi.ingestion.repository.IngestionRecordRepository
 import com.doq.comfozi.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.ingestion.support.BatchFileFormat
@@ -35,7 +35,6 @@ class IngestionUploadParseService(
     private val recordRepository: IngestionRecordRepository,
     private val fileStorage: FileStorage,
     private val batchFileParser: IngestionUploadBatchFileParser,
-    private val pdfTextExtractor: PdfTextExtractor,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
 
@@ -59,7 +58,10 @@ class IngestionUploadParseService(
     }
 
     /**
-     * 원본 문서(PDF) 추출 → 원본 행 적재 → PARSED. 실패하면 예외를 그대로 던져 호출자가 넘긴다.
+     * 원본 문서 추출 → 원본 행 적재 → PARSED. 실패하면 예외를 그대로 던져 호출자가 넘긴다.
+     *
+     * 형식별로 다른 건 **글자를 어떻게 꺼내느냐**([textExtractor])뿐이다 — PDF 는 텍스트 레이어,
+     * 이미지는 OCR. 그 뒤 항목 해석·채번·적재는 같다.
      *
      * **`docId`·`sourceType` 은 여기서 부여한다.** 공문 본문에 없어 추출기가 뽑을 수 없는 값들이다.
      * 원본유형은 업로드 형식에서 오고, 문서ID 는 업로드와 항목 순번으로 채번해 재시도해도 같은 값이
@@ -69,12 +71,17 @@ class IngestionUploadParseService(
      * (항목 순번)로 구분된다 — export 의 `source_ref` 가 이걸 그대로 쓴다.
      */
     @Transactional
-    fun extract(uploadId: Long, extractor: ItemExtractor, sourceType: String) {
+    fun extract(
+        uploadId: Long,
+        textExtractor: DocumentTextExtractor,
+        itemExtractor: ItemExtractor,
+        sourceType: String,
+    ) {
         val upload = uploadRepository.findByIdOrNull(uploadId) ?: return
         if (upload.status != IngestionUploadStatus.PARSING) return
 
         val bytes = fileStorage.load(upload.storageKey).use { it.readBytes() }
-        val items = extractor.extract(upload.fileName, pdfTextExtractor.extract(bytes))
+        val items = itemExtractor.extract(upload.fileName, textExtractor.extract(bytes))
 
         recordRepository.saveAll(items.toRecords(upload, sourceType))
         upload.markParsed()

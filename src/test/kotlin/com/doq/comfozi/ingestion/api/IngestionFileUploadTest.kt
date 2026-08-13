@@ -43,8 +43,9 @@ class IngestionFileUploadTest(
     @Autowired val recordRepository: IngestionRecordRepository,
 ) {
 
-    // PDF 는 실제로 열어 텍스트를 뽑으므로 진짜 PDF 여야 한다 (이 컨텍스트엔 LLM 추출기가 없다)
-    private val pdfBytes = TestPdf.of("PRICE CHANGE NOTICE", "Tomato Salsa 4kg/PK PK 32,000 33,600")
+    // PDF 는 실제로 열어 텍스트를 뽑으므로 진짜 PDF 여야 한다 (이 컨텍스트엔 LLM 추출기가 없다).
+    // 표가 아닌 안내문이라 규칙 파서가 행을 못 잡고 원문 하락 경로를 탄다.
+    private val pdfBytes = TestPdf.of("PRICE CHANGE NOTICE", "Please contact our sales team.")
     private val pngBytes = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A) + "png".toByteArray()
     private val jpegBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte()) + "jpg".toByteArray()
 
@@ -67,7 +68,7 @@ class IngestionFileUploadTest(
     }
 
     @Test
-    fun `추출기가 없어도 PDF 원문은 한 행으로 담긴다 - 검수에서 보완하도록`() {
+    fun `표를 못 읽은 PDF 는 원문이 한 행으로 담긴다 - 검수에서 보완하도록`() {
         val id = upload(pdf())
 
         mockMvc.perform(get("/api/ingestion/$id"))
@@ -105,15 +106,13 @@ class IngestionFileUploadTest(
     }
 
     @Test
-    fun `PNG·JPEG는 읽어낼 텍스트가 없어 행을 만들지 않는다`() {
-        for (f in listOf(file("a.png", "image/png", pngBytes), file("b.jpg", "image/jpeg", jpegBytes))) {
-            val id = upload(f)
-            mockMvc.perform(get("/api/ingestion/$id"))
-                .andExpect(jsonPath("$.data.uploads[0].type").value("FILE"))
-                .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
+    fun `이미지에서 글자를 못 읽으면 실패로 남는다 - OCR 이 있을 때`() {
+        // 매직바이트만 맞춘 가짜 PNG — OCR 이 있으면 "글자 없음"으로 실패, 없으면 행 0건
+        val id = upload(file("a.png", "image/png", pngBytes))
 
-            assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
-        }
+        mockMvc.perform(get("/api/ingestion/$id"))
+            .andExpect(jsonPath("$.data.uploads[0].type").value("FILE"))
+        assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
     }
 
     @Test

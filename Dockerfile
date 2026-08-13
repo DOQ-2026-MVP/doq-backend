@@ -3,8 +3,10 @@
 FROM eclipse-temurin:21-jre
 
 # curl: compose healthcheck 용 (temurin 이미지엔 curl/wget 둘 다 없음)
+# tesseract-ocr(+kor): 이미지 원본에서 글자를 뽑는 데 쓴다. 없으면 이미지는 보관만 되고
+#   부팅·업로드는 정상이므로, 이미지 입력을 안 쓸 거면 이 두 패키지는 빼도 된다(~40MB).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl tzdata \
+ && apt-get install -y --no-install-recommends curl tzdata tesseract-ocr tesseract-ocr-kor \
  && rm -rf /var/lib/apt/lists/*
 
 # reviewed_at 이 서버 로컬 시각을 +09:00 으로 표기하므로 TZ 를 KST 로 고정한다

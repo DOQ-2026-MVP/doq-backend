@@ -55,16 +55,25 @@ object TableTextItemExtractor : ItemExtractor {
     /**
      * 왼쪽 잔여를 품목명과 규격으로 가른다 — **숫자로 시작하는 첫 토큰부터가 규격**이다.
      * (`나초칩454G` 처럼 숫자를 품기만 한 이름은 갈라지지 않는다.)
+     *
+     * 다만 규격이 `기존 10kg / 변경 9kg` 처럼 **한글로 시작하는 변경 통보**면 숫자 규칙이 어긋난다
+     * (`냉동돈전지 기존` 이 품목명이 돼버린다). 그 형태가 보이면 `기존` 부터를 규격으로 본다 —
+     * 그래야 규격 변경 예외(spec_mismatch)가 제대로 물린다.
      */
     private fun splitNameAndSpec(left: String): Pair<String, String?> {
         val tokens = left.split(' ').filter { it.isNotBlank() }
-        val specAt = tokens.indexOfFirst { it.first().isDigit() }
+        val specAt = SPEC_CHANGE.find(left)
+            ?.let { tokens.indexOfFirst { t -> t == "기존" } }
+            ?: tokens.indexOfFirst { it.first().isDigit() }
         if (specAt <= 0) return left to null // 규격을 못 가르면 통째로 품목명
 
         return tokens.take(specAt).joinToString(" ") to tokens.drop(specAt).joinToString(" ")
     }
 
-    /** `발신 한들푸드유통 식자재사업부` → `한들푸드유통` (부서명은 뒤에 온다). */
+    /**
+     * `발신 한들푸드유통 식자재사업부` → `한들푸드유통` (부서명은 뒤에 온다).
+     * 거래명세서류는 `발신` 대신 `공급자` 를 쓰기도 한다.
+     */
     private fun supplierOf(line: String): String? =
         SENDER.find(line.replace('　', ' '))?.groupValues?.get(1)
 
@@ -77,11 +86,21 @@ object TableTextItemExtractor : ItemExtractor {
     /** 단가 한 칸 — 숫자(콤마·`원` 허용)이거나 `추후 안내` 처럼 미확정 표기. */
     private const val PRICE = """[\d,]+\s*원?|추후\s*안내"""
 
-    /** 표 한 행 — 앞의 선택적 번호를 떼고, 오른쪽 4칸(단위·기존·변경·끝)을 고정한다. */
+    /**
+     * 표 한 행 — 앞의 선택적 번호를 떼고 오른쪽부터 단위·기존단가·변경단가를 고정한다.
+     *
+     * 끝 칸(적용일자·인상률)은 **선택**이다. 적용일자 칸이 비어 있는 행이 실제로 있고
+     * (요구사항 DOC-016), 그걸 버리면 그 항목이 통째로 사라진다 — 비어 있으면 비어 있는 대로
+     * 올려 필수값 누락으로 드러나는 게 맞다.
+     */
     private val ROW = Regex(
-        """(?:\d+\s+)?(.+?)\s+(\S+)\s+($PRICE)\s+($PRICE)\s+(\d{4}-\d{2}-\d{2}|[\d.]+\s*%|-)""",
+        """(?:\d+\s+)?(.+?)\s+(\S+)\s+($PRICE)\s+($PRICE)(?:\s+(\d{4}-\d{2}-\d{2}|[\d.]+\s*%|-))?""",
     )
 
-    private val SENDER = Regex("""발\s*신\s+(\S+)""")
+    /** `발 신 …` 또는 `공 급 자 …` — 앞의 `공급받는자`(수신처)와 헷갈리지 않게 경계를 둔다. */
+    private val SENDER = Regex("""(?:^|\s)(?:발\s*신|공\s*급\s*자)\s+(\S+)""")
+
+    /** 규격이 `기존 … / 변경 …` 인 변경 통보 (AnomalyRule.SpecChangePattern 과 같은 형태). */
+    private val SPEC_CHANGE = Regex("""기존\s+.+?\s*/\s*변경\s+""")
     private val HEADER_DATE = Regex("""시행일\s+(\d{4}년\s*\d{1,2}월\s*\d{1,2}일)""")
 }
