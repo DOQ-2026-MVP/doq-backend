@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.structuring.StructuringService
+import com.doq.comfozi.structuring.awaitInspection
 import com.doq.comfozi.ingestion.manualInput
 import com.doq.comfozi.ingestion.service.IngestionService
 import org.hamcrest.Matchers.nullValue
@@ -39,7 +40,7 @@ class InspectionChangeLogTest(
             listOf(manualInput(docId = "DOC-1"), manualInput(docId = "DOC-2")),
         )
         structuringService.struct(session.id!!)
-        return inspectionRepository.findByIngestionId(session.id!!)!!.id!!
+        return inspectionRepository.awaitInspection(session.id!!).id!!
     }
 
     private fun firstRecordId(inspectionId: Long): Long =

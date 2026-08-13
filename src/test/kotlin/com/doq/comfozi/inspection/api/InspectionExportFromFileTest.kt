@@ -4,6 +4,7 @@ import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.inspection.service.InspectionReviewService
 import com.doq.comfozi.structuring.StructuringService
+import com.doq.comfozi.structuring.awaitInspection
 import com.doq.comfozi.ingestion.awaitParsed
 import com.doq.comfozi.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.ingestion.service.IngestionFileInput
@@ -50,7 +51,7 @@ class InspectionExportFromFileTest(
         structuringService.struct(session.id!!)
 
         // DOC-001만 승인
-        val inspectionId = inspectionRepository.findByIngestionId(session.id!!)!!.id!!
+        val inspectionId = inspectionRepository.awaitInspection(session.id!!).id!!
         val doc001 = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
             .first { it.current.docId == "DOC-001" }
         reviewService.confirm(doc001.id!!, null)

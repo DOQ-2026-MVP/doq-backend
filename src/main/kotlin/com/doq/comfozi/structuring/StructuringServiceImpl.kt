@@ -25,10 +25,14 @@ class StructuringServiceImpl(
 
     /**
      * DRAFT/FAILED 세션을 구조화한다(없으면 404, 이미 STRUCTURED거나 파싱 중이면 409, 비었으면 400).
-     * 성공하면 같은 트랜잭션에서 STRUCTURED로, 실패하면 [IngestionService.markFailed]로 FAILED(별도 tx라
-     * 작업 롤백돼도 남음) 후 예외 전파 → 재시도 가능.
+     *
+     * 여기서는 **계산만** 하고 세션 상태는 건드리지 않는다 — 검수 인박스 적재와 STRUCTURED 전이는
+     * 커밋 이후 [StructuringHandoffListener]가 별도 트랜잭션에서 함께 처리한다. 그래서 이 메소드가
+     * 성공해도 아직 인박스는 없고, 그 사이 실패하거나 죽으면 세션이 DRAFT/FAILED 로 남아 재시도로 복구된다.
+     *
+     * 계산 중 실패는 [IngestionService.markFailed]로 FAILED(별도 tx) 후 예외 전파 → 재시도 가능.
      */
-    @Transactional
+    @Transactional(readOnly = true)
     override fun struct(ingestionId: Long) {
         val session = readService.getSession(ingestionId) // 없으면 404 (관리 엔티티)
 
@@ -47,8 +51,8 @@ class StructuringServiceImpl(
             val observed = normalize(map(records))
             val flags = anomalyDetector.detect(observed)
 
-            publish(ingestionId, records, observed, flags)
-            session.markStructured() // DRAFT/FAILED → STRUCTURED (같은 tx, 더티체킹으로 영속)
+            // 커밋 이후에 전달된다 — 인계는 이 트랜잭션 밖에서 돈다
+            eventPublisher.publishEvent(StructuringComputed(ingestionId, items(records, observed, flags)))
         } catch (e: Exception) {
             ingestionService.markFailed(ingestionId) // REQUIRES_NEW — 롤백돼도 FAILED 커밋
             throw e
@@ -63,22 +67,18 @@ class StructuringServiceImpl(
     private fun normalize(observed: List<MappedRecord>): List<MappedRecord> =
         observed.onEach { it.normalizedItemName = itemNameNormalizer.normalize(it.rawItemName) }
 
-    /** 발행 — 세션 구조화 완료본을 배치 이벤트 1개로 인계한다 (inspection이 Inspection+레코드로 영속). */
-    private fun publish(
-        ingestionId: Long,
+    /** 원본 행·관찰값·플래그를 인계 항목으로 묶는다 (순서 대응). */
+    private fun items(
         records: List<IngestionRecord>,
         observed: List<MappedRecord>,
         flags: List<Set<AnomalyRuleBasedFlag>>,
-    ) {
-        val items = records.mapIndexed { i, record ->
-            StructuredRecord(
-                recordId = requireNotNull(record.id),
-                uploadType = record.uploadRef?.uploadType,
-                rowNo = record.uploadRef?.rowNo,
-                observed = observed[i],
-                flags = flags[i],
-            )
-        }
-        eventPublisher.publishEvent(StructuredRecords(ingestionId, items))
+    ): List<StructuredRecord> = records.mapIndexed { i, record ->
+        StructuredRecord(
+            recordId = requireNotNull(record.id),
+            uploadType = record.uploadRef?.uploadType,
+            rowNo = record.uploadRef?.rowNo,
+            observed = observed[i],
+            flags = flags[i],
+        )
     }
 }
