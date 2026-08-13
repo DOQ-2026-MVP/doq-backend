@@ -2,7 +2,7 @@ package com.doq.comfozi.inspection.domain
 
 import com.doq.comfozi.structuring.detection.AnomalyRule
 import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag
-import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
+import com.doq.comfozi.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.structuring.mapping.MappedRecord
 import jakarta.persistence.Column
 import jakarta.persistence.Entity

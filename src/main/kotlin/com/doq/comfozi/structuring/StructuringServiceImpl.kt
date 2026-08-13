@@ -2,10 +2,10 @@ package com.doq.comfozi.structuring
 
 import com.doq.comfozi.structuring.detection.AnomalyDetector
 import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag
-import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
-import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
-import com.doq.comfozi.structuring.ingestion.service.IngestionReadService
-import com.doq.comfozi.structuring.ingestion.service.IngestionService
+import com.doq.comfozi.ingestion.domain.IngestionRecord
+import com.doq.comfozi.ingestion.domain.IngestionStatus
+import com.doq.comfozi.ingestion.service.IngestionReadService
+import com.doq.comfozi.ingestion.service.IngestionService
 import com.doq.comfozi.structuring.mapping.MappedRecord
 import com.doq.comfozi.structuring.mapping.RecordMapperDispatcher
 import com.doq.comfozi.structuring.normalization.ItemNameNormalizer

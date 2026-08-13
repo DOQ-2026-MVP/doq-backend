@@ -11,8 +11,8 @@ import com.doq.comfozi.inspection.domain.InspectionRecordStatus
 import com.doq.comfozi.inspection.repository.InspectionChangeLogRepository
 import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
-import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
-import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
+import com.doq.comfozi.ingestion.repository.IngestionRecordRepository
+import com.doq.comfozi.ingestion.repository.IngestionUploadRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime

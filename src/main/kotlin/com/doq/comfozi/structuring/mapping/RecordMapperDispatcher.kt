@@ -1,6 +1,6 @@
 package com.doq.comfozi.structuring.mapping
 
-import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
+import com.doq.comfozi.ingestion.domain.IngestionRecord
 import org.springframework.stereotype.Component
 
 /**

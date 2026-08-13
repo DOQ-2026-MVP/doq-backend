@@ -64,7 +64,9 @@ inspection 이 저장한다.
 
 ## 패키지 구조
 
-루트 패키지는 `com.doq`. 도메인 코드는 `com.doq.comfozi` 아래에 **파이프라인 단계별**로 나뉜다.
+루트 패키지는 `com.doq`. 도메인 코드는 `com.doq.comfozi` 아래에 **파이프라인 단계별**로 나뉘고,
+세 단계는 나란한 형제다 — `ingestion` 은 다른 단계를 전혀 참조하지 않고, `structuring` 과 `inspection` 이
+그 결과를 가져다 쓴다.
 
 ```
 src/main/kotlin/com/doq/
@@ -75,26 +77,26 @@ src/main/kotlin/com/doq/
 │  │                                  @Async 활성화와 인입 파싱 워커 풀(AsyncConfig)
 │  └─ web/                            공통 응답 envelope(ApiResponse: success/data/error)·
 │                                     에러 코드(ApiError)·전역 예외 핸들러
-└─ comfozi/
-   ├─ structuring/                    ── 기계 단계 ──
+└─ comfozi/                          파이프라인 단계별로 나뉘며, 의존은 왼쪽에서 오른쪽으로만 흐른다
+   ├─ ingestion/                      ── 인입 ── 파일 업로드·수기 입력 → 원본 행 적재 (매핑 이전 원문)
+   │  ├─ api/                         변경(IngestionController)·조회(IngestionReadController) 컨트롤러 + 요청/응답 DTO ·
+   │  │                               세션 현황 SSE 팬아웃(IngestionEventStream)
+   │  ├─ domain/                      JPA 엔티티(Ingestion·IngestionUpload·IngestionRecord)·
+   │  │                               원문 값 홀더(IngestionContent, jsonb)·상태 enum
+   │  ├─ repository/                  Spring Data JPA 리포지토리 3종 (IngestionRepositories.kt 한 파일)
+   │  ├─ service/                     IngestionService(변경)·IngestionReadService(조회) + 입력 커맨드 타입 ·
+   │  │                               업로드 후속 처리(IngestionUploadStored 이벤트 → Listener → 파싱 워커)
+   │  └─ support/                     CSV/XLSX 파서·취합 파일 컬럼 스키마(BatchFileColumn)·
+   │                                  업로드 파일 분류(매직바이트)·FileStorage 포트와 로컬 구현
+   ├─ structuring/                    ── 구조화(기계) ── 원본 행 → 관찰값
    │  ├─ StructuringService(Impl).kt  인입 세션 1건 구조화 오케스트레이션 (매핑→정규화→탐지→이벤트 발행)
    │  ├─ StructuredRecord(s).kt       구조화 결과 항목 / 세션 단위 결과 이벤트 (→ inspection 인계 계약)
    │  ├─ api/                         StructuringController — POST /api/structuring/{ingestionId}
-   │  ├─ ingestion/                   인입: 파일 업로드·수기 입력 → 원본 행 적재 (매핑 이전 원문)
-   │  │  ├─ api/                      변경(IngestionController)·조회(IngestionReadController) 컨트롤러 + 요청/응답 DTO ·
-   │  │  │                            세션 현황 SSE 팬아웃(IngestionEventStream)
-   │  │  ├─ domain/                   JPA 엔티티(Ingestion·IngestionUpload·IngestionRecord)·
-   │  │  │                            원문 값 홀더(IngestionContent, jsonb)·상태 enum
-   │  │  ├─ repository/               Spring Data JPA 리포지토리 3종 (IngestionRepositories.kt 한 파일)
-   │  │  ├─ service/                  IngestionService(변경)·IngestionReadService(조회) + 입력 커맨드 타입 ·
-   │  │  │                            업로드 후속 처리(IngestionUploadStored 이벤트 → Listener → 파싱 워커)
-   │  │  └─ support/                  CSV/XLSX 파서·취합 파일 컬럼 스키마(BatchFileColumn)·
-   │  │                               원본 문서 매직바이트 검증·FileStorage 포트와 로컬 구현
    │  ├─ mapping/                     출처별 원문 → 캐노니컬 MappedRecord
    │  │                               (RecordMapper 전략 + Dispatcher, 수기·취합파일 구현)
    │  ├─ normalization/               ItemNameNormalizer — 원문 품목명 → 정규화 품목명
    │  └─ detection/                   이상 탐지 — AnomalyDetector 포트 + 규칙 기반 구현·규칙(AnomalyRule)·플래그 enum
-   └─ inspection/                     ── 사람 단계 ──
+   └─ inspection/                     ── 검수(사람) ──
       ├─ InspectionIntakeListener.kt  StructuredRecords 이벤트 수신 → 검수 인박스 영속(저장만)
       ├─ api/                         조회·검수(편집/확정/반려)·export 컨트롤러 + DTO,
       │                               export 행 스키마(ExportRow)와 CSV writer

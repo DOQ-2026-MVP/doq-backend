@@ -1,6 +1,6 @@
 package com.doq.comfozi.structuring.mapping
 
-import com.doq.comfozi.structuring.ingestion.manualInput
+import com.doq.comfozi.ingestion.manualInput
 import com.doq.common.config.AppObjectMapper
 import java.time.LocalDate
 import kotlin.test.Test

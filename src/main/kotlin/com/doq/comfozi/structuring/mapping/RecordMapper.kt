@@ -1,7 +1,7 @@
 package com.doq.comfozi.structuring.mapping
 
-import com.doq.comfozi.structuring.ingestion.domain.IngestionRecord
-import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
+import com.doq.comfozi.ingestion.domain.IngestionRecord
+import com.doq.comfozi.ingestion.domain.IngestionUploadType
 
 /**
  * 매핑 전략 — 출처별 원문을 캐노니컬 [MappedRecord]로 옮긴다.
