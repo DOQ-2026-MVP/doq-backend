@@ -1,6 +1,7 @@
 package com.doq.comfozi.structuring.api
 
 import com.doq.comfozi.ingestion.domain.IngestionStatus
+import com.doq.comfozi.structuring.awaitStructured
 import com.doq.comfozi.ingestion.repository.IngestionRepository
 import com.doq.comfozi.ingestion.manualInput
 import com.doq.comfozi.ingestion.service.IngestionService
@@ -29,13 +30,15 @@ class StructuringControllerTest(
         service.ingestManual(listOf(manualInput(docId = "A"))).id!!
 
     @Test
-    fun `POST structuring {id} - DRAFT 세션 구조화 + 200 + STRUCTURED 전이`() {
+    fun `POST structuring {id} - DRAFT 세션 구조화 접수 + 200, 인계 후 STRUCTURED 전이`() {
         val id = draftWithRecords()
 
         mockMvc.perform(post("/api/structuring/$id"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.success").value(true))
 
+        // 인계(검수 인박스 적재 + 상태 전이)는 커밋 이후 비동기다
+        ingestionRepository.awaitStructured(id)
         assertEquals(IngestionStatus.STRUCTURED, ingestionRepository.findByIdOrNull(id)!!.status)
     }
 

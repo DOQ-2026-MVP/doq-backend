@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import java.util.concurrent.ThreadPoolExecutor
 
-/** `@Async`·`@Scheduled` 활성화 + 인입 파이프라인 전용 스레드풀. */
+/** `@Async`·`@Scheduled` 활성화 + 파이프라인 단계별 전용 스레드풀. */
 @Configuration
 @EnableAsync
 @EnableScheduling
@@ -55,9 +55,32 @@ class AsyncConfig {
         setAwaitTerminationSeconds(AWAIT_TERMINATION_SECONDS)
     }
 
+    /**
+     * 구조화 결과 인계 워커 풀 — 검수 인박스 적재를 요청 트랜잭션에서 떼어낸다.
+     * 3만 행 세션이면 INSERT 도 3만 건이라 요청 스레드에 매달아 둘 일이 아니다.
+     */
+    @Bean(STRUCTURING_EXECUTOR)
+    fun structuringExecutor(
+        @Value("\${app.structuring.handoff.core-pool-size:2}") corePoolSize: Int,
+        @Value("\${app.structuring.handoff.max-pool-size:4}") maxPoolSize: Int,
+        @Value("\${app.structuring.handoff.queue-capacity:100}") queueCapacity: Int,
+    ): ThreadPoolTaskExecutor = ThreadPoolTaskExecutor().apply {
+        this.corePoolSize = corePoolSize
+        this.maxPoolSize = maxPoolSize
+        setQueueCapacity(queueCapacity)
+        setThreadNamePrefix("structuring-handoff-")
+        // 거절되면 그 세션은 영영 인계되지 않는다 — 느려지더라도 처리되는 편이 낫다
+        setRejectedExecutionHandler(ThreadPoolExecutor.CallerRunsPolicy())
+        setWaitForTasksToCompleteOnShutdown(true)
+        setAwaitTerminationSeconds(AWAIT_TERMINATION_SECONDS)
+    }
+
     companion object {
         /** 인입 파싱 워커 풀 빈 이름 — `@Async` 에서 지정한다. */
         const val INGESTION_PARSE_EXECUTOR = "ingestionParseExecutor"
+
+        /** 구조화 결과 인계 워커 풀 빈 이름 — `@Async` 에서 지정한다. */
+        const val STRUCTURING_EXECUTOR = "structuringExecutor"
 
         /** 현황 스트림 전송 스레드 빈 이름 — `@Async` 에서 지정한다. */
         const val INGESTION_EVENT_EXECUTOR = "ingestionEventExecutor"

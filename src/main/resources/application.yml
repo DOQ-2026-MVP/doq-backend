@@ -56,3 +56,9 @@ app:
       timeout-millis: 1800000
       heartbeat-millis: 15000
       queue-capacity: 1000
+  structuring:
+    handoff:
+      # 구조화 결과 → 검수 인박스 인계 워커 풀 (요청 트랜잭션에서 떼어냄)
+      core-pool-size: 2
+      max-pool-size: 4
+      queue-capacity: 100

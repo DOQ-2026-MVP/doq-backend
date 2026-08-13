@@ -5,6 +5,7 @@ import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.structuring.StructuringService
 import com.doq.comfozi.structuring.detection.AnomalyRuleBasedFlag
+import com.doq.comfozi.structuring.awaitInspection
 import com.doq.comfozi.ingestion.manualInput
 import com.doq.comfozi.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
@@ -32,7 +33,7 @@ class InspectionIntakeTest(
 
         structuringService.struct(session.id!!)
 
-        val inspection = inspectionRepository.findByIngestionId(session.id!!)!!
+        val inspection = inspectionRepository.awaitInspection(session.id!!)
         assertEquals(session.id, inspection.ingestionId)
 
         val records = inspectionRecordRepository.findByInspectionIdOrderByIdAsc(inspection.id!!)

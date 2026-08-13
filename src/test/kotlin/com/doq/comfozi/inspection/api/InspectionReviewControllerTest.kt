@@ -10,6 +10,7 @@ import com.doq.comfozi.structuring.mapping.MappedRecord
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.structuring.StructuringService
+import com.doq.comfozi.structuring.awaitInspection
 import com.doq.comfozi.ingestion.manualInput
 import com.doq.comfozi.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
@@ -41,7 +42,7 @@ class InspectionReviewControllerTest(
             listOf(manualInput(docId = "DOC-1"), manualInput(docId = "DOC-2")),
         )
         structuringService.struct(session.id!!)
-        return inspectionRepository.findByIngestionId(session.id!!)!!.id!!
+        return inspectionRepository.awaitInspection(session.id!!).id!!
     }
 
     /** DOC-1·DOC-2가 공급사만 달라 서로 중복이 아닌 세션. */
@@ -50,7 +51,7 @@ class InspectionReviewControllerTest(
             listOf(manualInput(docId = "DOC-1", supplier = "가온"), manualInput(docId = "DOC-2", supplier = "새봄")),
         )
         structuringService.struct(session.id!!)
-        return inspectionRepository.findByIngestionId(session.id!!)!!.id!!
+        return inspectionRepository.awaitInspection(session.id!!).id!!
     }
 
     private fun firstRecordId(inspectionId: Long): Long =
@@ -88,7 +89,7 @@ class InspectionReviewControllerTest(
             listOf(manualInput(docId = "DOC-X", spec = "기존 1kg / 변경 4단", unit = "KG/단")),
         )
         structuringService.struct(session.id!!)
-        val inspectionId = inspectionRepository.findByIngestionId(session.id!!)!!.id!!
+        val inspectionId = inspectionRepository.awaitInspection(session.id!!).id!!
         val record = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId).first()
         assertEquals(setOf(SPEC_MISMATCH, UNIT_MISMATCH), record.flags) // 초기: 둘 다
 
