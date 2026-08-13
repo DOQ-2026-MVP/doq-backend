@@ -62,3 +62,12 @@ app:
       core-pool-size: 2
       max-pool-size: 4
       queue-capacity: 100
+
+# 원본 문서(PDF) 항목 추출 — 추가 요건
+# api-key 는 여기 두지 않는다: 기본값을 주면 빈 값이라도 "존재"로 잡혀 오히려 켜진다.
+# 환경변수 ANTHROPIC_API_KEY 가 있을 때만(relaxed binding → anthropic.api-key) 추출기가 활성화된다.
+anthropic:
+  # 짧은 텍스트에서 정해진 7필드를 뽑는 구조화 작업이라 작은 모델로 충분하다.
+  # 추출 품질이 아쉬우면 ANTHROPIC_MODEL 로 올린다.
+  model: ${ANTHROPIC_MODEL:claude-haiku-4-5-20251001}
+  max-tokens: ${ANTHROPIC_MAX_TOKENS:8000}

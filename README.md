@@ -23,6 +23,18 @@ ComfoziAI 구매 증빙 인박스의 **앞단 2단계** 백엔드. XLSX/CSV·수
 - 컨테이너가 `healthy` 가 될 때까지 대기 후 부팅하며, 앱 종료 시 컨테이너도 함께 종료됩니다.
 - 스키마는 **Flyway** 마이그레이션(`db/migration`)으로 적용됩니다 (`ddl-auto: validate`).
 
+**선택 — PDF 항목 추출** (추가 요건):
+
+```bash
+ANTHROPIC_API_KEY=... ./gradlew bootRun
+```
+
+키를 주면 업로드한 PDF 에서 증빙 항목을 뽑아 9필드로 적재합니다.
+
+**키가 없어도 PDF 는 처리됩니다.** 규칙 기반 표 파서가 단가표를 읽어 항목별로 적재하고, 서식이 달라
+한 줄도 못 읽으면 원문을 한 행에 담습니다. 어느 쪽이든 **관찰값**이라 검수에서 확인·수정됩니다.
+필수 흐름(CSV/XLSX + 수기 입력)은 키와 무관하게 전부 동작합니다.
+
 ### 실행 확인
 
 ```bash
@@ -46,9 +58,21 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 **파일 업로드는 접수까지만 동기다.** 원본을 보관하고 응답한 뒤, 커밋 이후 `IngestionUploadStored`
 이벤트를 받아 별도 스레드에서 파싱·추출한다. 그래서 업로드가 끝난 시점에도 아직 행이 없을 수 있고
 (`PARSING`), 처리 실패는 예외가 아니라 상태(`PARSE_FAILED` + 사유)로 남는다. 취합 파일과 원본 문서가
-같은 상태 어휘를 쓰는데, 화면 입장에서는 둘 다 "이 파일이 행이 됐는가"이기 때문이다 — 원본 문서는
-행 자동 추출을 지원하지 않아 행 0건으로 `PARSED` 가 된다(추출이 붙을 자리는
-`IngestionUploadStoredListener` 의 문서 분기).
+같은 상태 어휘를 쓰는데, 화면 입장에서는 둘 다 "이 파일이 행이 됐는가"이기 때문이다.
+
+원본 문서 중 **PDF 는 항목을 추출한다**(추가 요건). 제공 문서가 전부 인쇄 산출물이라 텍스트 레이어가
+온전해서, PDFBox 로 글자를 뽑아 그 텍스트만 LLM 에 넘긴다 — 문서를 통째로 보내지 않아 토큰·지연이
+적다. 한 문서에서 여러 항목이 나오는 게 정상이고, 같은 파일명을 공유하며 문서 안 순번으로 구분한다.
+공문 본문에 없는 `문서ID`·`원본유형` 은 시스템이 부여한다 — 비워 두면 추출한 모든 항목이 필수값
+누락으로 떨어진다(진짜 출처는 `source_ref` 가 따로 들고 있다).
+
+LLM 추출기는 `ANTHROPIC_API_KEY` 가 있을 때만 켜진다. 없으면 **규칙 기반 표 파서**가 대신 읽는다 —
+우측(적용일자·단가·단위)부터 앵커를 맞추고 남은 왼쪽을 품목명·규격으로 가른다(규격은 숫자로 시작하는
+첫 토큰부터). 서식이 달라 한 줄도 못 읽으면 원문을 한 행에 담아 넘긴다. 뽑은 값은 어느 쪽이든
+관찰값이고 틀릴 수 있다 — 그래서 검수 단계가 있고, 열을 잘못 잡으면 대개 `unit_mismatch`·
+`spec_mismatch` 로 드러난다. 이미지(PNG·JPEG)는 촬영본이라
+전처리가 필요해 읽어낼 텍스트조차 없으므로 행을 만들지 않으며, 추출이 붙을 자리는 같은 분기
+(`IngestionUploadStoredListener` 의 문서 분기)다.
 
 처리가 비동기라 응답만으로는 결과를 알 수 없으므로 세션 현황을 **SSE 로 흘린다**
 (`IngestionEventStream`). 흐르는 것은 델타가 아니라 그때의 현황 전체라, 받는 쪽은 순서·유실·재연결을
@@ -86,6 +110,7 @@ src/main/kotlin/com/doq/
    │  ├─ repository/                  Spring Data JPA 리포지토리 3종 (IngestionRepositories.kt 한 파일)
    │  ├─ service/                     IngestionService(변경)·IngestionReadService(조회) + 입력 커맨드 타입 ·
    │  │                               업로드 후속 처리(IngestionUploadStored 이벤트 → Listener → 파싱 워커)
+   │  ├─ extraction/                  원본 문서(PDF) → 증빙 항목 (PDFBox 텍스트 추출 + LLM 추출기 포트)
    │  └─ support/                     CSV/XLSX 파서·취합 파일 컬럼 스키마(BatchFileColumn)·
    │                                  업로드 파일 분류(매직바이트)·FileStorage 포트와 로컬 구현
    ├─ structuring/                    ── 구조화(기계) ── 원본 행 → 관찰값
@@ -118,8 +143,9 @@ src/main/kotlin/com/doq/
 ./gradlew test        # 테스트만 (H2 in-memory, Docker 불필요)
 ```
 
-- 테스트 입력: `src/test/resources/fixtures/golden-20.csv` (제공 증빙 20건). 업로드→구조화→승인→export
-  전 경로를 실제 파일로 검증한다.
+- 테스트 입력: `src/test/resources/fixtures/` — `golden-20.csv`(제공 증빙 20건)로 업로드→구조화→승인
+  →export 전 경로를, `notice-*.pdf`(제공 원본 공문 2개)로 PDF 텍스트 추출과 원문 적재를 검증한다.
+- LLM 추출은 추출기를 페이크로 대체해 검증하므로 **테스트에 API 키가 필요 없다.**
 
 ## 기술 스택
 
@@ -130,6 +156,7 @@ src/main/kotlin/com/doq/
 | Framework | Spring Boot 3.5.x (Web MVC) |
 | Build | Gradle 9.4 (Kotlin DSL) |
 | RDB | PostgreSQL 16 + Spring Data JPA + Flyway |
-| 파일 파싱 | Apache Commons CSV · Apache POI (XLSX) |
+| 파일 파싱 | Apache Commons CSV · Apache POI (XLSX) · PDFBox (PDF 텍스트) |
+| PDF 항목 추출 | Anthropic Claude Haiku (선택 — `ANTHROPIC_API_KEY` 있을 때만, 모델은 `ANTHROPIC_MODEL` 로 교체) |
 | API 문서 | springdoc OpenAPI (Swagger UI) |
 | Test DB | H2 (in-memory) |
