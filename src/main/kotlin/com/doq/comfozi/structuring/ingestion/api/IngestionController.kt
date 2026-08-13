@@ -1,6 +1,8 @@
 package com.doq.comfozi.structuring.ingestion.api
 
+import com.doq.comfozi.structuring.ingestion.domain.Ingestion
 import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionReadService
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import com.doq.common.web.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
@@ -14,10 +16,11 @@ import org.springframework.web.multipart.MultipartFile
 /**
  * 인입 API — Ingestion 세션에 데이터를 넣는 입구.
  *
- * create(세션 신규) / continue(기존 DRAFT 세션에 이어붙임)를 엔드포인트로 분리한다.
- * 파일 업로드는 표 파일·원본 문서 구분 없이 `/uploads` 하나로 받고, 처리 경로는 내용으로 판정한다.
- * continue는 대상 세션을 URL path(`{ingestionId}`)로 지정하며, 존재하지 않거나 DRAFT가 아니면 서비스가 예외.
- * 값은 원문 그대로 저장하며 검증/정규화는 하지 않는다(후속 structuring).
+ * 적재는 upsert 다 — 경로에 `{ingestionId}` 가 없으면 새 세션, 있으면 그 세션에 이어붙인다
+ * (없거나 DRAFT 가 아니면 서비스가 예외). 파일 업로드는 표 파일·원본 문서 구분 없이 `/uploads`
+ * 하나로 받고 처리 경로는 내용으로 판정한다. 값은 원문 그대로 저장하며 검증/정규화는 하지 않는다.
+ *
+ * 변경 응답은 바뀐 뒤의 [IngestionState] — 현황 스트림이 흘리는 것과 같은 타입이다.
  *
  * 메소드 순서는 [IngestionService]와 맞춘다 — **적재(입력 종류별 create·continue 쌍) → 수정 → 삭제**,
  * 삭제는 대상 범위가 좁은 것부터(행 → 업로드 → 세션 전체).
@@ -27,17 +30,20 @@ import org.springframework.web.multipart.MultipartFile
 @RequestMapping("/api/ingestion")
 class IngestionController(
     private val service: IngestionService,
+    private val readService: IngestionReadService,
 ) {
 
     /**
      * 파일 업로드 적재(upsert). multipart `file` 필수.
      * 경로에 `{ingestionId}` 가 있으면 그 세션에 이어붙이고, 없으면 **새 세션**을 만든다.
      *
-     * 취합 표 파일(CSV·XLSX)이면 파싱해 원본 행까지 적재하고, 원본 증빙 문서(PDF·PNG·JPEG)면
+     * 취합 표 파일(CSV·XLSX)이면 파싱해 원본 행을 적재하고, 원본 증빙 문서(PDF·PNG·JPEG)면
      * 보관만 한다. **어느 쪽인지는 내용(매직 바이트)으로 판정**하므로 호출부가 미리 구분하지 않는다.
-     * 어느 경로로 처리됐는지는 세션 조회의 `uploads[].type`·`status` 에서 확인한다.
+     *
+     * 201 은 **접수**를 뜻한다 — 파싱은 응답 이후 비동기로 돌기 때문에 응답의 그 업로드는 아직
+     * `PARSING` 이다. 진행·결과는 현황 스트림으로 이어서 온다. 지원하지 않는 파일 형식만 400 으로 거른다.
      */
-    @Operation(summary = "파일 업로드 (표 파일은 행 적재, 원본 문서는 보관)")
+    @Operation(summary = "파일 업로드 접수 (파싱·추출은 비동기)")
     @PostMapping(
         value = ["/uploads", "/{ingestionId}/uploads"],
         consumes = [MediaType.MULTIPART_FORM_DATA_VALUE],
@@ -46,10 +52,7 @@ class IngestionController(
     fun uploadFile(
         @PathVariable(required = false) ingestionId: Long?,
         @RequestPart("file") file: MultipartFile,
-    ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.ingestFile(file.toFileInput(), ingestionId)
-        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
-    }
+    ): ApiResponse<IngestionState> = state(service.ingestFile(file.toFileInput(), ingestionId))
 
     /**
      * 수기 입력 적재(upsert) — 행은 업로드 출처 없이 생성된다(uploadRef=null).
@@ -61,10 +64,7 @@ class IngestionController(
     fun addManualRecords(
         @PathVariable(required = false) ingestionId: Long?,
         @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
-    ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.ingestManual(requests.map { it.toInput() }, ingestionId)
-        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
-    }
+    ): ApiResponse<IngestionState> = state(service.ingestManual(requests.map { it.toInput() }, ingestionId))
 
     /**
      * 수기 행 수정 — 9필드를 **전체 교체**한다(부분 갱신 아님). 검증은 추가 때와 동일.
@@ -87,10 +87,7 @@ class IngestionController(
     fun deleteRecord(
         @PathVariable ingestionId: Long,
         @PathVariable recordId: Long,
-    ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.deleteRecord(ingestionId, recordId)
-        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
-    }
+    ): ApiResponse<IngestionState> = state(service.deleteRecord(ingestionId, recordId))
 
     /** 업로드 1건 삭제 — 그 업로드에서 나온 행·저장 원본까지. 다른 업로드의 행과 수기 행은 남는다. */
     @Operation(summary = "업로드 1건 삭제 (해당 업로드의 원본 행·저장 파일 포함)")
@@ -98,20 +95,21 @@ class IngestionController(
     fun deleteUpload(
         @PathVariable ingestionId: Long,
         @PathVariable uploadId: Long,
-    ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.deleteUpload(ingestionId, uploadId)
-        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
-    }
+    ): ApiResponse<IngestionState> = state(service.deleteUpload(ingestionId, uploadId))
 
     /** 세션 비우기(truncate) — 원본 행(수기·파일)·업로드·저장 파일을 모두 제거하고 세션을 DRAFT로 되돌린다(수정·재시도용). */
     @Operation(summary = "세션 비우기 (원본 행·업로드·파일 모두 제거 후 DRAFT로 되돌림)")
     @DeleteMapping("/{ingestionId}/records")
     fun truncate(
         @PathVariable ingestionId: Long,
-    ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.truncate(ingestionId)
-        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
-    }
+    ): ApiResponse<IngestionState> = state(service.truncate(ingestionId))
+
+    /**
+     * 바뀐 뒤의 세션 현황 — 현황 스트림이 흘리는 것과 **같은 타입**이라, 화면은 자기 요청의 응답으로
+     * 받든 스트림으로 받든 같은 모델을 다룬다. 변경 트랜잭션은 이미 커밋됐으므로 다시 읽어 조립한다.
+     */
+    private fun state(ingestion: Ingestion): ApiResponse<IngestionState> =
+        ApiResponse.ok(data = IngestionState(readService.getStatus(requireNotNull(ingestion.id))))
 
     private fun MultipartFile.toFileInput() = IngestionFileInput(
         fileName = originalFilename ?: "unknown",

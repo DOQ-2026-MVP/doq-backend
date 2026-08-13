@@ -1,5 +1,6 @@
 package com.doq.comfozi.structuring.ingestion.api
 
+import com.doq.comfozi.structuring.ingestion.awaitParsed
 import com.doq.comfozi.structuring.ingestion.manualInput
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
@@ -26,9 +27,10 @@ class IngestionReadControllerTest(
     private val goldenCsv: ByteArray =
         javaClass.getResourceAsStream("/fixtures/golden-20.csv")!!.readBytes()
 
-    private fun uploadGolden() = service.ingestFile(
+    /** 업로드 후 비동기 파싱까지 끝난 세션 id. */
+    private fun uploadGolden(): Long = service.ingestFile(
         IngestionFileInput("golden-20.csv", "text/csv", goldenCsv.inputStream()),
-    ).id!!
+    ).id!!.also { uploadRepository.awaitParsed(it) }
 
     private fun uploadIdOf(ingestionId: Long) =
         uploadRepository.findByIngestionIdOrderByIdAsc(ingestionId).single().id
@@ -47,7 +49,7 @@ class IngestionReadControllerTest(
     }
 
     @Test
-    fun `GET 세션은 업로드 현황을 파싱 상태·행 수와 함께 반환한다`() {
+    fun `GET 세션은 업로드 현황을 파싱 상태와 함께 반환한다`() {
         val id = uploadGolden()
 
         mockMvc.perform(get("/api/ingestion/$id"))
@@ -56,19 +58,22 @@ class IngestionReadControllerTest(
             .andExpect(jsonPath("$.data.uploads[0].type").value("BATCH_FILE"))
             .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
             .andExpect(jsonPath("$.data.uploads[0].fileName").value("golden-20.csv"))
-            .andExpect(jsonPath("$.data.uploads[0].recordCount").value(20))
+            .andExpect(jsonPath("$.data.uploads[0].failureReason").isEmpty)
             .andExpect(jsonPath("$.data.uploads[0].size").value(goldenCsv.size))
+            .andExpect(jsonPath("$.data.records.length()").value(20))
     }
 
     @Test
-    fun `업로드 행 수는 수기 입력을 세지 않는다`() {
+    fun `파일 행과 수기 행이 한 세션에 섞인다`() {
         val id = uploadGolden()
         service.ingestManual(listOf(manualInput(docId = "MAN-1"), manualInput(docId = "MAN-2")), id)
 
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.uploads.length()").value(1)) // 수기 입력은 업로드가 아니다
             .andExpect(jsonPath("$.data.records.length()").value(22))
-            .andExpect(jsonPath("$.data.uploads[0].recordCount").value(20)) // 수기 2건 제외
+            .andExpect(jsonPath("$.data.records[20].uploadId").isEmpty) // 뒤 2건은 수기
+            .andExpect(jsonPath("$.data.records[21].uploadId").isEmpty)
     }
 
     @Test

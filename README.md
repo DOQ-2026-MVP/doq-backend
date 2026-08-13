@@ -43,6 +43,22 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 엔드포인트·요청/응답 스키마의 단일 소스는 **Swagger UI** 다 — 컨트롤러에서 자동 생성되므로
 이 문서에 API 표를 중복해 두지 않는다.
 
+**파일 업로드는 접수까지만 동기다.** 원본을 보관하고 응답한 뒤, 커밋 이후 `IngestionUploadStored`
+이벤트를 받아 별도 스레드에서 파싱·추출한다. 그래서 업로드가 끝난 시점에도 아직 행이 없을 수 있고
+(`PARSING`), 처리 실패는 예외가 아니라 상태(`PARSE_FAILED` + 사유)로 남는다. 취합 파일과 원본 문서가
+같은 상태 어휘를 쓰는데, 화면 입장에서는 둘 다 "이 파일이 행이 됐는가"이기 때문이다 — 원본 문서는
+행 자동 추출을 지원하지 않아 행 0건으로 `PARSED` 가 된다(추출이 붙을 자리는
+`IngestionUploadStoredListener` 의 문서 분기).
+
+처리가 비동기라 응답만으로는 결과를 알 수 없으므로 세션 현황을 **SSE 로 흘린다**
+(`IngestionEventStream`). 흐르는 것은 델타가 아니라 그때의 현황 전체라, 받는 쪽은 순서·유실·재연결을
+따질 것 없이 화면을 갈아끼우면 된다. 구독 즉시 스냅샷이 한 번 가므로 최초 조회가 따로 필요 없고,
+끊겼다 붙어도 그 스냅샷이 곧 최신이라 놓친 이벤트를 메울 장치가 없다. 화면이 보여주는 만큼만
+싣기 때문에(올라온 파일들 + 수기 행들) 3만 행짜리 파일이 올라와도 이벤트 크기는 그대로다.
+
+구독자는 **자기가 붙은 인스턴스**에서 일어난 변화만 본다. 다중화하면 인스턴스 간 팬아웃(Redis pub/sub
+등)이 필요하다 — 지금은 단일 인스턴스 전제라 넣지 않았다.
+
 구조화는 `StructuredRecords` 이벤트(같은 트랜잭션)로 검수 단계에 인계된다 — structuring 이 계산하고
 inspection 이 저장한다.
 
@@ -55,7 +71,8 @@ src/main/kotlin/com/doq/
 ├─ BackendApplication.kt              Spring Boot 진입점
 ├─ api/                               HealthController — GET /api/ping
 ├─ common/
-│  ├─ config/                         Jackson·Hibernate jsonb 타입·springdoc OpenAPI 설정
+│  ├─ config/                         Jackson·Hibernate jsonb 타입·springdoc OpenAPI 설정·
+│  │                                  @Async 활성화와 인입 파싱 워커 풀(AsyncConfig)
 │  └─ web/                            공통 응답 envelope(ApiResponse: success/data/error)·
 │                                     에러 코드(ApiError)·전역 예외 핸들러
 └─ comfozi/
@@ -64,11 +81,13 @@ src/main/kotlin/com/doq/
    │  ├─ StructuredRecord(s).kt       구조화 결과 항목 / 세션 단위 결과 이벤트 (→ inspection 인계 계약)
    │  ├─ api/                         StructuringController — POST /api/structuring/{ingestionId}
    │  ├─ ingestion/                   인입: 파일 업로드·수기 입력 → 원본 행 적재 (매핑 이전 원문)
-   │  │  ├─ api/                      변경(IngestionController)·조회(IngestionReadController) 컨트롤러 + 요청/응답 DTO
+   │  │  ├─ api/                      변경(IngestionController)·조회(IngestionReadController) 컨트롤러 + 요청/응답 DTO ·
+   │  │  │                            세션 현황 SSE 팬아웃(IngestionEventStream)
    │  │  ├─ domain/                   JPA 엔티티(Ingestion·IngestionUpload·IngestionRecord)·
    │  │  │                            원문 값 홀더(IngestionContent, jsonb)·상태 enum
    │  │  ├─ repository/               Spring Data JPA 리포지토리 3종 (IngestionRepositories.kt 한 파일)
-   │  │  ├─ service/                  IngestionService(변경)·IngestionReadService(조회) + 입력 커맨드 타입
+   │  │  ├─ service/                  IngestionService(변경)·IngestionReadService(조회) + 입력 커맨드 타입 ·
+   │  │  │                            업로드 후속 처리(IngestionUploadStored 이벤트 → Listener → 파싱 워커)
    │  │  └─ support/                  CSV/XLSX 파서·취합 파일 컬럼 스키마(BatchFileColumn)·
    │  │                               원본 문서 매직바이트 검증·FileStorage 포트와 로컬 구현
    │  ├─ mapping/                     출처별 원문 → 캐노니컬 MappedRecord

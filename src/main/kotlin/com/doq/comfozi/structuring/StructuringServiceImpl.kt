@@ -24,9 +24,9 @@ class StructuringServiceImpl(
 ) : StructuringService {
 
     /**
-     * DRAFT/FAILED 세션을 구조화한다(없으면 404, 이미 STRUCTURED면 409, 비었으면 400). 성공하면 같은
-     * 트랜잭션에서 STRUCTURED로, 실패하면 [IngestionService.markFailed]로 FAILED(별도 tx라 작업 롤백돼도
-     * 남음) 후 예외 전파 → 재시도 가능.
+     * DRAFT/FAILED 세션을 구조화한다(없으면 404, 이미 STRUCTURED거나 파싱 중이면 409, 비었으면 400).
+     * 성공하면 같은 트랜잭션에서 STRUCTURED로, 실패하면 [IngestionService.markFailed]로 FAILED(별도 tx라
+     * 작업 롤백돼도 남음) 후 예외 전파 → 재시도 가능.
      */
     @Transactional
     override fun struct(ingestionId: Long) {
@@ -34,6 +34,11 @@ class StructuringServiceImpl(
 
         check(session.status != IngestionStatus.STRUCTURED) {
             "이미 구조화된(STRUCTURED) 세션 (현재 ${session.status})"
+        }
+        // 처리가 비동기라 아직 행이 다 안 들어왔을 수 있다 — 반쪽짜리 세션을 구조화하지 않는다.
+        // (PARSE_FAILED 는 더 들어올 행이 없으므로 막지 않는다 — 나머지 행으로 진행)
+        check(readService.getUploads(ingestionId).all { it.status.isTerminal }) {
+            "파싱이 끝나지 않은 업로드가 있어 구조화할 수 없음"
         }
         val records = readService.getRecords(ingestionId)
         require(records.isNotEmpty()) { "빈 세션은 구조화할 수 없음" }

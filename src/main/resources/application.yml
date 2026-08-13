@@ -45,3 +45,14 @@ app:
     local:
       # 업로드 원본 파일 저장 루트 (로컬 파일시스템)
       root: ${STORAGE_LOCAL_ROOT:./data/uploads}
+  ingestion:
+    parse:
+      # 취합 파일 파싱 워커 풀 — 업로드 응답 이후 별도 스레드에서 파싱한다
+      core-pool-size: 2
+      max-pool-size: 4
+      queue-capacity: 100
+    events:
+      # 세션 현황 SSE — 연결 유지 시간과 살아있음 표시 주기 (프록시 idle 타임아웃보다 짧게)
+      timeout-millis: 1800000
+      heartbeat-millis: 15000
+      queue-capacity: 1000

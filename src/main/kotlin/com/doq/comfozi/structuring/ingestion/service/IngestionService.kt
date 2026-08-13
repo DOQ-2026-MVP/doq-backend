@@ -20,8 +20,13 @@ interface IngestionService {
      * 파일 업로드 적재(upsert) — [ingestionId] 가 null 이면 **새 DRAFT 세션**을 만들고,
      * 있으면 그 세션에 이어붙인다(DRAFT 가 아니면 409).
      *
-     * 처리 경로는 **내용으로 판정**한다: 취합 표 파일(CSV·XLSX)이면 파싱해 원본 행까지 적재하고,
+     * 처리 경로는 **내용으로 판정**한다: 취합 표 파일(CSV·XLSX)이면 파싱해 원본 행을 적재하고,
      * 원본 증빙 문서(PDF·이미지)면 보관만 한다(행 자동 추출은 미지원 — 수기 입력으로 보완).
+     *
+     * 이 메소드는 **원본 보관까지만** 하고 돌아온다 — 파싱·추출은 커밋 이후 비동기로 진행되며
+     * 그동안 업로드는 `PARSING` 이다. 따라서 반환 시점에 아직 행이 없고, **처리 실패는 예외가 아니라
+     * `PARSE_FAILED` 상태**로 드러난다(세션 조회의 `uploads[]`). 지원하지 않는 파일 형식만 저장 전에
+     * 예외로 거른다.
      */
     fun ingestFile(input: IngestionFileInput, ingestionId: Long? = null): Ingestion
 

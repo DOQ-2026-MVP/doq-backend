@@ -3,6 +3,7 @@ package com.doq.comfozi.structuring.ingestion
 import com.doq.comfozi.structuring.ingestion.domain.IngestionStatus
 import com.doq.comfozi.structuring.ingestion.domain.IngestionUploadType
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepository
+import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionManualInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
@@ -22,6 +23,7 @@ import kotlin.test.assertNull
 class IngestionServiceTest(
     @Autowired val service: IngestionService,
     @Autowired val recordRepository: IngestionRecordRepository,
+    @Autowired val uploadRepository: IngestionUploadRepository,
 ) {
 
     @Test
@@ -39,6 +41,7 @@ class IngestionServiceTest(
         assertNotNull(ingestion.id)
         assertEquals(IngestionStatus.DRAFT, ingestion.status)
 
+        uploadRepository.awaitParsed(ingestion.id!!) // 파싱은 커밋 이후 비동기
         val records = recordRepository.findByIngestionIdOrderByIdAsc(ingestion.id!!)
         assertEquals(2, records.size)
 
@@ -100,6 +103,7 @@ class IngestionServiceTest(
             IngestionFileInput(fileName = "golden.xlsx", contentType = null, content = bytes.inputStream()),
         )
 
+        uploadRepository.awaitParsed(ingestion.id!!)
         val records = recordRepository.findByIngestionIdOrderByIdAsc(ingestion.id!!)
         assertEquals(1, records.size)
         val rec = records[0]

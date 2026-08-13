@@ -9,6 +9,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import java.time.LocalDateTime
 
 /**
  * 인입 원본 행 (Postgres) — [Ingestion] 세션 안의 원문 한 행.
@@ -31,6 +32,9 @@ class IngestionRecord(
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
     var content: IngestionContent,
+
+    @Column(nullable = false, updatable = false)
+    val createdAt: LocalDateTime = LocalDateTime.now(),
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

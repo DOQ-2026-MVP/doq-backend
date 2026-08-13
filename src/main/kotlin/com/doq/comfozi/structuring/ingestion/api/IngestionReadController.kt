@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.nio.charset.StandardCharsets
 
 /**
@@ -26,30 +27,50 @@ import java.nio.charset.StandardCharsets
 class IngestionReadController(
     private val readService: IngestionReadService,
     private val fileStorage: FileStorage,
+    private val eventStream: IngestionEventStream,
 ) {
+
+    /**
+     * 세션 현황 실시간 구독 (SSE) — 어떤 파일이 올라왔고 어디까지 처리됐는지, 수기 행이 저장됐는지를
+     * 폴링 없이 받는다. 파싱·추출이 비동기라 업로드 응답만으로는 결과를 알 수 없어서 뚫은 통로다.
+     *
+     * `event: state` 하나만 흐르고, 매번 **그 시점 현황 전체**([IngestionStateEvent])가 실린다 —
+     * 받는 쪽은 화면을 갈아끼우면 된다. 구독 즉시 현재 상태가 한 번 오므로(`change: null`) 최초 조회를
+     * 따로 하지 않아도 되고, 끊겼다 붙어도 그 스냅샷이 곧 최신이라 놓친 이벤트를 메울 필요가 없다.
+     *
+     * 원본 행 목록은 싣지 않는다 — 필요하면 `GET /api/ingestion/{ingestionId}`.
+     *
+     * 없는 세션이면 **본문 없이 404**다. 다른 엔드포인트와 달리 공통 실패 envelope(JSON)을 쓰지 않는데,
+     * EventSource 는 `Accept: text/event-stream` 만 보내서 JSON 본문이 협상에 걸리기 때문이다
+     * (그대로 두면 404 가 아니라 500 이 나간다). 스트림에서는 상태 코드로 충분하다.
+     */
+    @Operation(summary = "세션 현황 실시간 구독 (SSE)")
+    @GetMapping("/{ingestionId}/events", produces = [EVENT_STREAM_UTF8])
+    fun streamEvents(
+        @PathVariable ingestionId: Long,
+    ): ResponseEntity<SseEmitter> =
+        try {
+            // charset 은 여기서 붙여야 한다 — produces 는 매핑용이고, SseEmitter 는 비어 있을 때
+            // charset 없는 text/event-stream 을 직접 세팅한다(그러면 응답이 ISO-8859-1 로 잡힌다)
+            ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(EVENT_STREAM_UTF8))
+                .body(eventStream.subscribe(ingestionId))
+        } catch (_: NoSuchElementException) {
+            ResponseEntity.notFound().build()
+        }
 
     /** 인입 세션 + 업로드 현황 + 원본 행 조회. 없으면 404. */
     @Operation(summary = "인입 세션 + 업로드 현황 + 원본 행 조회")
     @GetMapping("/{ingestionId}")
     fun getIngestion(
         @PathVariable ingestionId: Long,
-    ): ApiResponse<IngestionMutationResponse> {
-        val session = readService.getSession(ingestionId)
-        val records = readService.getRecords(ingestionId)
-
-        // 업로드별 행 수는 이미 읽은 행들로 계산 — 추가 쿼리 없음
-        val countByUploadId = records.mapNotNull { it.uploadRef?.uploadId }.groupingBy { it }.eachCount()
-        val uploads = readService.getUploads(ingestionId)
-            .map { IngestionUploadResponse(it, recordCount = countByUploadId[it.id] ?: 0) }
-
-        return ApiResponse.ok(
-            data = IngestionMutationResponse(
-                ingestion = session,
-                uploads = uploads,
-                records = records.map(::IngestionRecordResponse),
-            ),
-        )
-    }
+    ): ApiResponse<IngestionSessionResponse> = ApiResponse.ok(
+        data = IngestionSessionResponse(
+            ingestion = readService.getSession(ingestionId),
+            uploads = readService.getUploads(ingestionId),
+            records = readService.getRecords(ingestionId),
+        ),
+    )
 
     /**
      * 업로드 원본 다운로드 — 화면에서 PDF·이미지를 열어보고 수기 입력으로 옮기기 위한 경로.
@@ -71,5 +92,13 @@ class IngestionReadController(
                 ContentDisposition.inline().filename(upload.fileName, StandardCharsets.UTF_8).build().toString(),
             )
             .body(InputStreamResource(fileStorage.load(upload.storageKey)))
+    }
+
+    private companion object {
+        /**
+         * charset 을 명시한다 — 붙이지 않으면 응답 인코딩이 ISO-8859-1 로 잡혀 한글(파싱 실패 사유·파일명)이
+         * 깨진다. 브라우저 EventSource 는 규격상 UTF-8 로 읽지만 그 외 클라이언트는 헤더를 믿는다.
+         */
+        const val EVENT_STREAM_UTF8 = MediaType.TEXT_EVENT_STREAM_VALUE + ";charset=UTF-8"
     }
 }

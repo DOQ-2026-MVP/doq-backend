@@ -4,6 +4,8 @@ import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
 import com.doq.comfozi.inspection.service.InspectionReviewService
 import com.doq.comfozi.structuring.StructuringService
+import com.doq.comfozi.structuring.ingestion.awaitParsed
+import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.structuring.ingestion.service.IngestionFileInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import org.springframework.beans.factory.annotation.Autowired
@@ -28,6 +30,7 @@ class InspectionExportFromFileTest(
     @Autowired val reviewService: InspectionReviewService,
     @Autowired val inspectionRepository: InspectionRepository,
     @Autowired val recordRepository: InspectionRecordRepository,
+    @Autowired val uploadRepository: IngestionUploadRepository,
 ) {
 
     private val goldenCsv: ByteArray =
@@ -43,6 +46,7 @@ class InspectionExportFromFileTest(
                 content = goldenCsv.inputStream(),
             ),
         )
+        uploadRepository.awaitParsed(session.id!!) // 파싱은 커밋 이후 비동기
         structuringService.struct(session.id!!)
 
         // DOC-001만 승인
