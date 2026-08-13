@@ -1,6 +1,7 @@
 package com.doq.comfozi.structuring.ingestion.api
 
 import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionDocumentInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import com.doq.common.web.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
@@ -48,6 +49,34 @@ class IngestionController(
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
+    /**
+     * 원본 문서(PDF·이미지) 업로드로 **새 세션** 생성 + 원본 보관. multipart `file` 필수.
+     *
+     * 취합 표 파일(`/uploads`)과 엔드포인트를 나눈 이유: 처리가 다르다(한쪽은 행을 만들고 한쪽은 보관만).
+     * content-type 으로 암묵 분기하면 어느 쪽으로 처리됐는지 호출부가 알 수 없다.
+     */
+    @Operation(summary = "원본 문서(PDF·이미지) 업로드로 새 세션 생성 + 원본 보관 (행 추출은 미지원)")
+    @PostMapping("/documents", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @ResponseStatus(HttpStatus.CREATED)
+    fun uploadDocument(
+        @RequestPart("file") file: MultipartFile,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.createFromDocument(file.toDocumentInput())
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
+    /** 원본 문서 업로드를 **기존 세션**에 이어붙임(보관만). */
+    @Operation(summary = "원본 문서(PDF·이미지) 업로드를 기존 세션에 이어붙임")
+    @PostMapping("/{ingestionId}/documents", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @ResponseStatus(HttpStatus.CREATED)
+    fun continueDocument(
+        @PathVariable ingestionId: Long,
+        @RequestPart("file") file: MultipartFile,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.continueFromDocument(ingestionId, file.toDocumentInput())
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
     /** 수기 입력들로 **새 세션** 생성 + 행 적재(uploadRef=null). */
     @Operation(summary = "수기 입력들로 새 세션 생성 + 행 적재")
     @PostMapping("/records")
@@ -81,7 +110,50 @@ class IngestionController(
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
+    /** 원본 행 1건 삭제 (수기·파일 무관). */
+    @Operation(summary = "원본 행 1건 삭제")
+    @DeleteMapping("/{ingestionId}/records/{recordId}")
+    fun deleteRecord(
+        @PathVariable ingestionId: Long,
+        @PathVariable recordId: Long,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.deleteRecord(ingestionId, recordId)
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
+    /**
+     * 수기 행 수정 — 9필드를 **전체 교체**한다(부분 갱신 아님). 검증은 추가 때와 동일.
+     * 파일 출처 행은 원본 근거라 대상이 아니다(409) — 구조화 이후 검수 단계에서 수정한다.
+     */
+    @Operation(summary = "수기 행 수정 (9필드 전체 교체)")
+    @PutMapping("/{ingestionId}/records/{recordId}")
+    fun updateManualRecord(
+        @PathVariable ingestionId: Long,
+        @PathVariable recordId: Long,
+        @Valid @RequestBody request: IngestionManualRecordRequest,
+    ): ApiResponse<IngestionRecordResponse> {
+        val record = service.updateManualRecord(ingestionId, recordId, request.toInput())
+        return ApiResponse.ok(data = IngestionRecordResponse(record))
+    }
+
+    /** 업로드 1건 삭제 — 그 업로드에서 나온 행·저장 원본까지. 다른 업로드의 행과 수기 행은 남는다. */
+    @Operation(summary = "업로드 1건 삭제 (해당 업로드의 원본 행·저장 파일 포함)")
+    @DeleteMapping("/{ingestionId}/uploads/{uploadId}")
+    fun deleteUpload(
+        @PathVariable ingestionId: Long,
+        @PathVariable uploadId: Long,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.deleteUpload(ingestionId, uploadId)
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
     private fun MultipartFile.toBatchInput() = IngestionBatchFileInput(
+        fileName = originalFilename ?: "unknown",
+        contentType = contentType,
+        content = inputStream,
+    )
+
+    private fun MultipartFile.toDocumentInput() = IngestionDocumentInput(
         fileName = originalFilename ?: "unknown",
         contentType = contentType,
         content = inputStream,

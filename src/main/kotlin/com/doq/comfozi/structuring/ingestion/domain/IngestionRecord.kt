@@ -30,9 +30,20 @@ class IngestionRecord(
     // 원문 그대로 (매핑 전) — 수기: 9필드 맵, 파일: 헤더→값 맵
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
-    val content: IngestionContent,
+    var content: IngestionContent,
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
+
+    /**
+     * 수기 행의 원문을 교체한다(오타 정정 등).
+     *
+     * 파일 출처 행은 **원본 근거(관찰값)** 라 인입 단계에서 고칠 수 없다 — 여기서 원문을 덮으면
+     * 검수의 "관찰값 vs 수정값" 분리가 무의미해진다. 파일 행 수정은 구조화 이후 검수 단계의 몫.
+     */
+    fun replaceContent(newContent: IngestionContent) {
+        check(uploadRef == null) { "파일 출처 행은 인입 단계에서 수정할 수 없음 (검수 단계에서 수정)" }
+        content = newContent
+    }
 }
