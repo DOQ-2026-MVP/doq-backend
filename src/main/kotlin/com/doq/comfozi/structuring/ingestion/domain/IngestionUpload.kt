@@ -28,6 +28,11 @@ class IngestionUpload(
     @Column(nullable = false, updatable = false)
     val type: IngestionUploadType,
 
+    // 처리 현황 — 추출 단계가 생기면 여기서 진행되므로 불변이 아니다
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    var status: IngestionUploadStatus,
+
     @Column(nullable = false, updatable = false) val fileName: String,
     @Column(nullable = false, updatable = false) val storageKey: String,
     @Column(updatable = false) val contentType: String? = null,

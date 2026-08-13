@@ -22,19 +22,9 @@ data class FieldChange(
         @JsonProperty("field") get() = property.name
 
     companion object {
-        /** 캐노니컬 필드 순서 — diff·복원의 단일 출처. */
-        val FIELDS: List<KProperty1<MappedRecord, String?>> = listOf(
-            MappedRecord::docId,
-            MappedRecord::sourceType,
-            MappedRecord::supplier,
-            MappedRecord::rawItemName,
-            MappedRecord::spec,
-            MappedRecord::unit,
-            MappedRecord::priceBefore,
-            MappedRecord::priceAfter,
-            MappedRecord::effectiveDate,
-            MappedRecord::normalizedItemName,
-        )
+        /** 캐노니컬 필드 순서 — diff·복원의 단일 출처. 필수 9필드 + 정규화 품목명. */
+        val FIELDS: List<KProperty1<MappedRecord, String?>> =
+            MappedRecord.REQUIRED_FIELDS + MappedRecord::normalizedItemName
 
         private val BY_NAME: Map<String, KProperty1<MappedRecord, String?>> = FIELDS.associateBy { it.name }
 

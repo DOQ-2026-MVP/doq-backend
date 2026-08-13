@@ -49,14 +49,14 @@ class IngestionTruncateTest(
         // 검증·실패를 거쳐 FAILED 상태에서 되돌림을 확인
         ingestionRepository.save(ingestionRepository.findByIdOrNull(id)!!.apply { markFailed() })
         assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).size >= 2) // 파일 1 + 수기 1
-        assertTrue(uploadRepository.findByIngestionId(id).isNotEmpty())
+        assertTrue(uploadRepository.findByIngestionIdOrderByIdAsc(id).isNotEmpty())
 
         mockMvc.perform(delete("/api/ingestion/$id/records"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.status").value("DRAFT"))
 
         assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
-        assertTrue(uploadRepository.findByIngestionId(id).isEmpty())
+        assertTrue(uploadRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
     }
 
     @Test
