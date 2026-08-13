@@ -75,7 +75,7 @@ class IngestionFileUploadTest(
             .andExpect(jsonPath("$.data.uploads[0].type").value("FILE"))
             .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
             .andExpect(jsonPath("$.data.uploads[0].fileName").value("증빙.pdf"))
-            .andExpect(jsonPath("$.data.records.length()").value(0))
+            .andExpect(jsonPath("$.data.manualRecords.length()").value(0))
 
         assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
     }
@@ -97,8 +97,10 @@ class IngestionFileUploadTest(
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads[0].type").value("BATCH_FILE"))
             .andExpect(jsonPath("$.data.uploads[0].status").value("PARSED"))
-            .andExpect(jsonPath("$.data.records.length()").value(1))
-            .andExpect(jsonPath("$.data.records[0].content['문서ID']").value("DOC-001"))
+
+        // 파일 행은 현황에 안 실린다 — 적재됐는지는 저장된 행으로 본다
+        val records = recordRepository.findByIngestionIdOrderByIdAsc(id)
+        assertEquals("DOC-001", records.single().content.values["문서ID"])
     }
 
     @Test
@@ -111,7 +113,8 @@ class IngestionFileUploadTest(
             .andExpect(jsonPath("$.data.uploads.length()").value(2))
             .andExpect(jsonPath("$.data.uploads[0].type").value("BATCH_FILE"))
             .andExpect(jsonPath("$.data.uploads[1].type").value("FILE"))
-            .andExpect(jsonPath("$.data.records.length()").value(1)) // 문서는 행을 안 만든다
+
+        assertEquals(1, recordRepository.findByIngestionIdOrderByIdAsc(id).size) // 문서는 행을 안 만든다
     }
 
     @Test
@@ -120,7 +123,8 @@ class IngestionFileUploadTest(
 
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads[0].type").value("BATCH_FILE"))
-            .andExpect(jsonPath("$.data.records.length()").value(1))
+
+        assertEquals(1, recordRepository.findByIngestionIdOrderByIdAsc(id).size)
     }
 
     @Test
@@ -152,7 +156,8 @@ class IngestionFileUploadTest(
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads[0].status").value("PARSE_FAILED"))
             .andExpect(jsonPath("$.data.uploads[0].failureReason").value(containsString("읽을 수 없습니다")))
-            .andExpect(jsonPath("$.data.records.length()").value(0))
+
+        assertTrue(recordRepository.findByIngestionIdOrderByIdAsc(id).isEmpty())
     }
 
     @Test
@@ -208,7 +213,7 @@ class IngestionFileUploadTest(
 
         mockMvc.perform(get("/api/ingestion/$id"))
             .andExpect(jsonPath("$.data.uploads.length()").value(1))
-            .andExpect(jsonPath("$.data.records.length()").value(1)) // 수기 행은 그대로
+            .andExpect(jsonPath("$.data.manualRecords.length()").value(1)) // 수기 행은 그대로
     }
 
     @Test
