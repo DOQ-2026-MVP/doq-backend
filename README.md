@@ -148,6 +148,6 @@ src/main/kotlin/com/doq/
 | Build | Gradle 9.4 (Kotlin DSL) |
 | RDB | PostgreSQL 16 + Spring Data JPA + Flyway |
 | 파일 파싱 | Apache Commons CSV · Apache POI (XLSX) · PDFBox (PDF 텍스트) |
-| PDF 항목 추출 | Anthropic Claude (선택 — `ANTHROPIC_API_KEY` 있을 때만) |
+| PDF 항목 추출 | Anthropic Claude Haiku (선택 — `ANTHROPIC_API_KEY` 있을 때만, 모델은 `ANTHROPIC_MODEL` 로 교체) |
 | API 문서 | springdoc OpenAPI (Swagger UI) |
 | Test DB | H2 (in-memory) |

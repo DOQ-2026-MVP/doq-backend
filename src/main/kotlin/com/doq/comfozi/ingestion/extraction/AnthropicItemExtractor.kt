@@ -14,6 +14,9 @@ import org.springframework.stereotype.Component
  * PDF 를 통째로 실어 보내지 않는 이유: 제공 문서는 텍스트 레이어가 온전해 텍스트만으로 충분하고,
  * 토큰·지연이 크게 준다. 대신 표 정렬이 평문으로 무너지므로 프롬프트가 열 대응을 설명한다.
  *
+ * 기본 모델이 작은 축인 것도 같은 이유다 — 짧은 텍스트에서 정해진 7필드를 뽑는 구조화 작업이라
+ * 큰 모델이 필요하지 않다. 추출 품질이 아쉬우면 `ANTHROPIC_MODEL` 로 올리면 된다.
+ *
  * [AnthropicClient] 빈이 있을 때만(= `ANTHROPIC_API_KEY` 설정 시) 활성화된다. 없으면 이 빈도 없고,
  * PDF 는 추출 없이 보관만 된다(행 0건).
  */
@@ -21,7 +24,7 @@ import org.springframework.stereotype.Component
 @ConditionalOnBean(AnthropicClient::class)
 class AnthropicItemExtractor(
     private val client: AnthropicClient,
-    @Value("\${anthropic.model:claude-opus-4-8}") private val model: String,
+    @Value("\${anthropic.model:claude-haiku-4-5-20251001}") private val model: String,
     @Value("\${anthropic.max-tokens:8000}") private val maxTokens: Long,
 ) : ItemExtractor {
 
