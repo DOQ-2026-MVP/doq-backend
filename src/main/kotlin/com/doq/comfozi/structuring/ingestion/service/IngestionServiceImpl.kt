@@ -10,6 +10,7 @@ import com.doq.comfozi.structuring.ingestion.repository.IngestionRecordRepositor
 import com.doq.comfozi.structuring.ingestion.repository.IngestionRepository
 import com.doq.comfozi.structuring.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.structuring.ingestion.support.FileStorage
+import com.doq.comfozi.structuring.ingestion.support.IngestionDocumentValidator
 import com.doq.comfozi.structuring.ingestion.support.IngestionUploadBatchFileParser
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -23,6 +24,7 @@ class IngestionServiceImpl(
     private val recordRepository: IngestionRecordRepository,
     private val fileStorage: FileStorage,
     private val batchFileParser: IngestionUploadBatchFileParser,
+    private val documentValidator: IngestionDocumentValidator,
 ) : IngestionService {
 
     @Transactional
@@ -39,6 +41,14 @@ class IngestionServiceImpl(
     @Transactional
     override fun createFromManualRecords(inputs: List<IngestionManualInput>): Ingestion =
         ingestManual(inputs = inputs)
+
+    @Transactional
+    override fun createFromDocument(input: IngestionDocumentInput): Ingestion =
+        ingestDocument(input = input)
+
+    @Transactional
+    override fun continueFromDocument(ingestionId: Long, input: IngestionDocumentInput): Ingestion =
+        ingestDocument(input = input, ingestionId = ingestionId)
 
     @Transactional
     override fun continueFromManualRecords(ingestionId: Long, inputs: List<IngestionManualInput>): Ingestion =
@@ -125,6 +135,30 @@ class IngestionServiceImpl(
         )
 
         recordRepository.saveAll(parsed.toEntities(ingestion.id, upload.id!!))
+        return ingestion
+    }
+
+    /**
+     * 원본 문서는 **보관만** 한다 — 행 추출이 없으므로 [IngestionRecord]를 만들지 않는다.
+     * 취합 파일과 마찬가지로 형식 검증을 먼저 해 실패 시 부작용 없이 400.
+     */
+    private fun ingestDocument(input: IngestionDocumentInput, ingestionId: Long? = null): Ingestion {
+        val bytes = input.content.readBytes() // 저장·검증 두 번 쓰므로 버퍼링
+        documentValidator.validate(bytes)
+        val ingestion = resolveDraftSession(ingestionId)
+
+        val stored = fileStorage.store(bytes.inputStream())
+        uploadRepository.save(
+            IngestionUpload(
+                ingestionId = ingestion.id!!,
+                type = IngestionUploadType.FILE,
+                status = IngestionUploadStatus.PENDING_EXTRACTION, // 추출 미지원 — 수기 입력으로 보완
+                fileName = input.fileName,
+                storageKey = stored.storageKey,
+                contentType = input.contentType,
+                size = stored.size,
+            ),
+        )
         return ingestion
     }
 
