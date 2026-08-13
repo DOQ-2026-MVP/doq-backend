@@ -1,6 +1,7 @@
 package com.doq.comfozi.structuring.ingestion.api
 
 import com.doq.comfozi.structuring.ingestion.service.IngestionBatchFileInput
+import com.doq.comfozi.structuring.ingestion.service.IngestionDocumentInput
 import com.doq.comfozi.structuring.ingestion.service.IngestionService
 import com.doq.common.web.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
@@ -45,6 +46,34 @@ class IngestionController(
         @RequestPart("file") file: MultipartFile,
     ): ApiResponse<IngestionMutationResponse> {
         val ingestion = service.continueFromBatchFile(ingestionId, file.toBatchInput())
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
+    /**
+     * 원본 문서(PDF·이미지) 업로드로 **새 세션** 생성 + 원본 보관. multipart `file` 필수.
+     *
+     * 취합 표 파일(`/uploads`)과 엔드포인트를 나눈 이유: 처리가 다르다(한쪽은 행을 만들고 한쪽은 보관만).
+     * content-type 으로 암묵 분기하면 어느 쪽으로 처리됐는지 호출부가 알 수 없다.
+     */
+    @Operation(summary = "원본 문서(PDF·이미지) 업로드로 새 세션 생성 + 원본 보관 (행 추출은 미지원)")
+    @PostMapping("/documents", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @ResponseStatus(HttpStatus.CREATED)
+    fun uploadDocument(
+        @RequestPart("file") file: MultipartFile,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.createFromDocument(file.toDocumentInput())
+        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
+    }
+
+    /** 원본 문서 업로드를 **기존 세션**에 이어붙임(보관만). */
+    @Operation(summary = "원본 문서(PDF·이미지) 업로드를 기존 세션에 이어붙임")
+    @PostMapping("/{ingestionId}/documents", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @ResponseStatus(HttpStatus.CREATED)
+    fun continueDocument(
+        @PathVariable ingestionId: Long,
+        @RequestPart("file") file: MultipartFile,
+    ): ApiResponse<IngestionMutationResponse> {
+        val ingestion = service.continueFromDocument(ingestionId, file.toDocumentInput())
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
@@ -119,6 +148,12 @@ class IngestionController(
     }
 
     private fun MultipartFile.toBatchInput() = IngestionBatchFileInput(
+        fileName = originalFilename ?: "unknown",
+        contentType = contentType,
+        content = inputStream,
+    )
+
+    private fun MultipartFile.toDocumentInput() = IngestionDocumentInput(
         fileName = originalFilename ?: "unknown",
         contentType = contentType,
         content = inputStream,
