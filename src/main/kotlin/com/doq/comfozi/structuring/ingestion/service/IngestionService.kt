@@ -19,6 +19,15 @@ interface IngestionService {
     /** 수기 입력들로 새 세션 생성 + 행 적재(uploadRef=null). */
     fun createFromManualRecords(inputs: List<IngestionManualInput>): Ingestion
 
+    /**
+     * 원본 문서(PDF·이미지) 업로드로 새 세션 생성 + 원본 **보관**.
+     * 행 자동 추출은 미지원이라 원본 행은 만들어지지 않는다 — 수기 입력으로 보완한다.
+     */
+    fun createFromDocument(input: IngestionDocumentInput): Ingestion
+
+    /** 원본 문서 업로드를 기존 DRAFT 세션에 이어붙인다(보관만). */
+    fun continueFromDocument(ingestionId: Long, input: IngestionDocumentInput): Ingestion
+
     /** 취합 파일 업로드를 기존 DRAFT 세션에 이어붙인다. */
     fun continueFromBatchFile(ingestionId: Long, input: IngestionBatchFileInput): Ingestion
 

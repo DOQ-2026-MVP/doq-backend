@@ -49,6 +49,9 @@ POST /api/ingestion  →  POST /api/structuring/{id}  →  PATCH/POST /api/inspe
 |---|---|---|
 | POST | `/uploads` (multipart `file`) | 취합 파일(CSV/XLSX) 업로드 → 새 세션 + 원본 행 적재 |
 | POST | `/{ingestionId}/uploads` | 기존 DRAFT 세션에 파일 이어붙임 |
+| POST | `/documents` (multipart `file`) | 원본 문서(PDF/PNG/JPEG) 업로드 → 새 세션 + 원본 **보관만** |
+| POST | `/{ingestionId}/documents` | 기존 DRAFT 세션에 원본 문서 이어붙임 |
+| GET | `/{ingestionId}/uploads/{uploadId}/content` | 업로드 원본 다운로드 (envelope 없이 파일 바이트) |
 | POST | `/records` | 수기 입력들로 새 세션 |
 | POST | `/{ingestionId}/records` | 수기 입력 이어붙임 |
 | PUT | `/{ingestionId}/records/{recordId}` | 수기 행 수정 (9필드 전체 교체) |
@@ -80,6 +83,10 @@ DRAFT·FAILED 세션에서는 가능하며, 입력이 바뀌었으므로 세션�
 **행 단위 이상 여부는 인입 단계에서 판정하지 않는다.** 필수값 누락·규격/단위 불일치·중복은
 구조화 이후 검수 인박스에서 `exception_flags` 와 검수결과(`확인 필요`·`보류 필요`)로 표시된다.
 수기 입력은 경계에서 9필드를 검증하므로(실패 시 400) 저장된 수기 행은 항상 완전하다.
+
+취합 표 파일(`/uploads`)과 원본 문서(`/documents`)는 엔드포인트가 다르다 — 전자는 행을 만들고
+후자는 보관만 하므로, content-type 으로 암묵 분기하면 어느 쪽으로 처리됐는지 호출부가 알 수 없다.
+원본 문서는 **매직 바이트**로 판별하므로 확장자만 바꾼 파일은 400 이다. 업로드 상한은 20MB.
 
 ### 구조화 (`/api/structuring`)
 | Method | Path | 설명 |
@@ -203,12 +210,19 @@ DRAFT·FAILED 세션에서는 가능하며, 입력이 바뀌었으므로 세션�
 
 ### 지원 (범위 IN)
 - XLSX/CSV 업로드 + 수기 등록, 원본 행 근거(파일명·행번호)
+- PDF·이미지 원본 문서 **업로드·보관·다운로드**, 업로드 단위 삭제, 원본 행 개별 삭제·수기 행 수정
+- 입력 세션 현황 조회 — 업로드별 상태·행 수, 행별 인입 단계 검증(필수값 누락 필드명)
 - 구조화(매핑·사전 정규화·예외 4종 탐지), 검수 인박스 영속·조회
 - 사람 편집·확정·반려·일괄확정, 필수값 누락 시 승인 차단, 변경 이력·메모
 - 승인 항목 JSON+CSV export (수기·파일 두 경로)
 
 ### 미지원 / 범위 밖
-- **PDF·이미지·EML 원본 문서 OCR** — 추가(선택) 요건, **미구현**.
+- **PDF·이미지에서 행 자동 추출(OCR·LLM)** — **미구현**. 원본 업로드·보관·다운로드까지는 지원하며
+  (`POST /api/ingestion/documents`), 업로드는 `PENDING_EXTRACTION` 상태로 남고 항목은 **수기 입력으로 보완**한다.
+  추출이 붙으면 `IngestionUploadStatus` 에 값을 더하고 `RecordMapper` 에 `FILE` 구현체를 추가하는 자리다.
+- **수기 행 ↔ 업로드 문서 연결** — 원본 문서를 올려도 수기 행과 이어지지 않아 export 의
+  `source_ref.file_name` 이 비어 있다. 수기 입력에 선택적 `uploadId` 를 받으면 해결된다.
+- **EML 원본 문서** — 미구현.
 - **정규화 규칙 엔진** — 사전 조회만 구현, 규칙 기반 전개(약어·꼬리 제거)는 미구현(사전 20건으로 요건 충족).
 - **검수 인박스 상태/플래그 필터·목록 조회 API** — 프론트 클라이언트 필터 처리 전제로 미제공
   (검수 상세 응답이 레코드별 상태·플래그를 모두 포함).

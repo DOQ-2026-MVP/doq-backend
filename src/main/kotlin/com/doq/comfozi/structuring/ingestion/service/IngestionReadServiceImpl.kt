@@ -25,6 +25,11 @@ class IngestionReadServiceImpl(
     override fun getUploads(ingestionId: Long): List<IngestionUpload> =
         uploadRepository.findByIngestionIdOrderByIdAsc(ingestionId)
 
+    override fun getUpload(ingestionId: Long, uploadId: Long): IngestionUpload =
+        uploadRepository.findByIdOrNull(uploadId)
+            ?.takeIf { it.ingestionId == ingestionId }
+            ?: throw NoSuchElementException("세션 $ingestionId 에 없는 업로드 $uploadId")
+
     override fun getRecords(ingestionId: Long): List<IngestionRecord> =
         recordRepository.findByIngestionIdOrderByIdAsc(ingestionId)
 }
