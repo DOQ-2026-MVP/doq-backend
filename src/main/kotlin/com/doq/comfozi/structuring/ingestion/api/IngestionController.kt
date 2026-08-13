@@ -30,51 +30,36 @@ class IngestionController(
 ) {
 
     /**
-     * 파일 업로드로 **새 세션** 생성. multipart `file` 필수.
+     * 파일 업로드 적재(upsert). multipart `file` 필수.
+     * 경로에 `{ingestionId}` 가 있으면 그 세션에 이어붙이고, 없으면 **새 세션**을 만든다.
      *
      * 취합 표 파일(CSV·XLSX)이면 파싱해 원본 행까지 적재하고, 원본 증빙 문서(PDF·PNG·JPEG)면
      * 보관만 한다. **어느 쪽인지는 내용(매직 바이트)으로 판정**하므로 호출부가 미리 구분하지 않는다.
      * 어느 경로로 처리됐는지는 세션 조회의 `uploads[].type`·`status` 에서 확인한다.
      */
-    @Operation(summary = "파일 업로드로 새 세션 생성 (표 파일은 행 적재, 원본 문서는 보관)")
-    @PostMapping("/uploads", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    @Operation(summary = "파일 업로드 (표 파일은 행 적재, 원본 문서는 보관)")
+    @PostMapping(
+        value = ["/uploads", "/{ingestionId}/uploads"],
+        consumes = [MediaType.MULTIPART_FORM_DATA_VALUE],
+    )
     @ResponseStatus(HttpStatus.CREATED)
     fun uploadFile(
-        @RequestPart("file") file: MultipartFile,
-    ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.ingestFile(file.toFileInput())
-        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
-    }
-
-    /** 파일 업로드를 **기존 세션**에 이어붙임. 처리 경로 판정은 [uploadFile] 과 같다. */
-    @Operation(summary = "파일 업로드를 기존 세션에 이어붙임")
-    @PostMapping("/{ingestionId}/uploads", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
-    @ResponseStatus(HttpStatus.CREATED)
-    fun continueFile(
-        @PathVariable ingestionId: Long,
+        @PathVariable(required = false) ingestionId: Long?,
         @RequestPart("file") file: MultipartFile,
     ): ApiResponse<IngestionMutationResponse> {
         val ingestion = service.ingestFile(file.toFileInput(), ingestionId)
         return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
     }
 
-    /** 수기 입력들로 **새 세션** 생성 + 행 적재(uploadRef=null). */
-    @Operation(summary = "수기 입력들로 새 세션 생성 + 행 적재")
-    @PostMapping("/records")
+    /**
+     * 수기 입력 적재(upsert) — 행은 업로드 출처 없이 생성된다(uploadRef=null).
+     * 경로에 `{ingestionId}` 가 있으면 그 세션에 이어붙이고, 없으면 새 세션을 만든다.
+     */
+    @Operation(summary = "수기 입력 적재 (행 생성)")
+    @PostMapping(value = ["/records", "/{ingestionId}/records"])
     @ResponseStatus(HttpStatus.CREATED)
     fun addManualRecords(
-        @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
-    ): ApiResponse<IngestionMutationResponse> {
-        val ingestion = service.ingestManual(requests.map { it.toInput() })
-        return ApiResponse.ok(data = IngestionMutationResponse(ingestion))
-    }
-
-    /** 수기 입력들을 **기존 세션**에 이어붙임. */
-    @Operation(summary = "수기 입력들을 기존 세션에 이어붙임")
-    @PostMapping("/{ingestionId}/records")
-    @ResponseStatus(HttpStatus.CREATED)
-    fun continueManualRecords(
-        @PathVariable ingestionId: Long,
+        @PathVariable(required = false) ingestionId: Long?,
         @Valid @RequestBody requests: List<@Valid IngestionManualRecordRequest>,
     ): ApiResponse<IngestionMutationResponse> {
         val ingestion = service.ingestManual(requests.map { it.toInput() }, ingestionId)
