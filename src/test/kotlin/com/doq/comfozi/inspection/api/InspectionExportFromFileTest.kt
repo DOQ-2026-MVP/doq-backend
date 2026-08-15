@@ -54,7 +54,7 @@ class InspectionExportFromFileTest(
         val inspectionId = inspectionRepository.awaitInspection(session.id!!).id!!
         val doc001 = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
             .first { it.current.docId == "DOC-001" }
-        reviewService.confirm(doc001.id!!, null)
+        reviewService.confirm(doc001.id!!)
 
         mockMvc.perform(get("/api/inspection/$inspectionId/export.json"))
             .andExpect(status().isOk)

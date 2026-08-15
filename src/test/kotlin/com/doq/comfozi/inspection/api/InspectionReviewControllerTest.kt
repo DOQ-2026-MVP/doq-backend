@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -120,7 +121,11 @@ class InspectionReviewControllerTest(
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"rawItemName":"품목만"}"""),
         ).andExpect(status().isOk)
-        assertEquals(setOf(MISSING_REQUIRED), recordRepository.findById(inspectionRecordId).get().flags)
+        val cleared = recordRepository.findById(inspectionRecordId).get()
+        assertEquals(setOf(MISSING_REQUIRED), cleared.flags)
+        // 비운 단가·적용일은 null 로 담긴다 — "null" 이라는 문자열로 담기면 누락으로 보이지 않는다
+        assertNull(cleared.current.priceBefore)
+        assertNull(cleared.current.effectiveDate)
 
         // 온전한 값으로 다시 채움 → 플래그 사라짐
         mockMvc.perform(
@@ -280,6 +285,25 @@ class InspectionReviewControllerTest(
         val after = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
         assertEquals(InspectionRecordStatus.CONFIRMED, after[0].status)
         assertEquals(InspectionRecordStatus.NEW, after[1].status) // 차단되어 그대로
+    }
+
+    @Test
+    fun `PATCH record - 메모는 편집으로 남고 전이는 건드리지 않는다`() {
+        val inspectionRecordId = firstInspectionRecordId(structured())
+
+        mockMvc.perform(
+            patch("/api/inspection/records/$inspectionRecordId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"supplier":"교정공급사","memo":"공급사 확인함"}"""),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.memo").value("공급사 확인함"))
+
+        assertEquals("공급사 확인함", recordRepository.findById(inspectionRecordId).get().memo)
+
+        // 메모도 전체 교체 대상 — 다음 편집에서 빠지면 비워진다
+        patchEdit(inspectionRecordId, recordRepository.findById(inspectionRecordId).get().current)
+        assertNull(recordRepository.findById(inspectionRecordId).get().memo)
     }
 
     @Test

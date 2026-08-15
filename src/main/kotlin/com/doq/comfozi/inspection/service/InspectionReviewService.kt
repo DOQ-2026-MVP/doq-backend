@@ -6,14 +6,17 @@ import com.doq.comfozi.structuring.mapping.MappedRecord
 /** 검수 쓰기 오케스트레이터 — 검수자가 레코드를 교정·확정·반려한다. */
 interface InspectionReviewService {
 
-    /** [inspectionRecordId] 레코드의 편집본을 [values]로 교체(없으면 404, 확정된 레코드면 409). EDIT 이력을 남긴다. */
-    fun edit(inspectionRecordId: Long, values: MappedRecord): InspectionRecord
+    /**
+     * [inspectionRecordId] 레코드의 편집본을 [values]로, 메모를 [memo]로 교체(없으면 404, 확정된 레코드면 409).
+     * EDIT 이력을 남긴다. 메모는 값과 함께 전체 교체 — null 이면 비워진다.
+     */
+    fun edit(inspectionRecordId: Long, values: MappedRecord, memo: String? = null): InspectionRecord
 
-    /** [inspectionRecordId] 레코드 확정(없으면 404, 필수값 누락이면 409). 이미 확정이면 멱등. CONFIRM 이력([memo] 선택)을 남긴다. */
-    fun confirm(inspectionRecordId: Long, memo: String? = null): InspectionRecord
+    /** [inspectionRecordId] 레코드 확정(없으면 404, 필수값 누락이면 409). 이미 확정이면 멱등. CONFIRM 이력을 남긴다. */
+    fun confirm(inspectionRecordId: Long): InspectionRecord
 
-    /** [inspectionRecordId] 레코드 반려(없으면 404). 이미 반려면 멱등. REJECT 이력([memo] 선택)을 남긴다. */
-    fun reject(inspectionRecordId: Long, memo: String? = null): InspectionRecord
+    /** [inspectionRecordId] 레코드 반려(없으면 404). 이미 반려면 멱등. REJECT 이력을 남긴다. */
+    fun reject(inspectionRecordId: Long): InspectionRecord
 
     /**
      * [inspectionId] 검수의 남은 NEW 레코드를 일괄 확정(없으면 404). 필수값이 누락된 레코드는

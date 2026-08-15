@@ -6,17 +6,13 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.PastOrPresent
 import jakarta.validation.constraints.PositiveOrZero
+import jakarta.validation.constraints.Size
 import java.time.LocalDate
 
-/** 확정/반려 요청 — 선택적 메모(사유)를 싣는다. 본문 없이 호출해도 된다. */
-data class InspectionActionRequest(
-    val memo: String? = null,
-)
-
 /**
- * 검수 레코드 편집 요청 — 편집본([MappedRecord]) 전체를 교체한다(관찰값 observed는 불변).
+ * 검수 레코드 편집 요청 — 편집본([MappedRecord])과 메모 전체를 교체한다(관찰값 observed는 불변).
  *
- * 캐노니컬 9필드 + 정규화 품목명을 실어 보낸다. 값을 비우면(null) 해당 필드가 비워진다(부분 패치 아님, 전체 교체).
+ * 캐노니컬 9필드 + 정규화 품목명 + 메모를 실어 보낸다. 값을 비우면(null) 해당 필드가 비워진다(부분 패치 아님, 전체 교체).
  */
 data class InspectionRecordEditRequest(
     @field:NotBlank(message = "문서ID는 필수입니다")
@@ -50,6 +46,10 @@ data class InspectionRecordEditRequest(
     val effectiveDate: LocalDate? = null,
 
     val normalizedItemName: String? = null,
+
+    /** 검수 메모 — 검수자 코멘트. 값과 함께 전체 교체되므로, 유지하려면 기존 메모를 그대로 실어 보낸다. */
+    @field:Size(max = 1000, message = "메모는 1000자를 넘을 수 없습니다")
+    val memo: String? = null,
 ) {
     fun toMappedRecord() = MappedRecord(
         docId = docId,
@@ -60,9 +60,11 @@ data class InspectionRecordEditRequest(
         rawItemName = rawItemName,
         spec = spec,
         unit = unit,
-        priceBefore = priceBefore.toString(),
-        priceAfter = priceAfter.toString(),
-        effectiveDate = effectiveDate.toString(),
+        // 빈 값은 빈 값으로 — `Any?.toString()` 은 null 을 "null" 이라는 네 글자 문자열로 만든다.
+        // 그렇게 담기면 값이 비었는데도 필수값 누락(missing_required)에 걸리지 않는다.
+        priceBefore = priceBefore?.toString(),
+        priceAfter = priceAfter?.toString(),
+        effectiveDate = effectiveDate?.toString(),
         normalizedItemName = normalizedItemName,
     )
 }

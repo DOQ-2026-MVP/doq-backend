@@ -49,15 +49,15 @@ class InspectionExportControllerTest(
 
     private fun confirmFirst(inspectionId: Long) {
         val first = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId).first()
-        reviewService.confirm(first.id!!, null)
+        reviewService.confirm(first.id!!)
     }
 
     @Test
     fun `export json - 권장 스키마 필드 (편집+메모+이력 포함)`() {
         val inspectionId = structured()
         val record = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId).first()
-        reviewService.edit(record.id!!, record.current.copy(supplier = "교정공급사"))
-        reviewService.confirm(record.id!!, "검토 완료")
+        reviewService.edit(record.id!!, record.current.copy(supplier = "교정공급사"), memo = "검토 완료")
+        reviewService.confirm(record.id!!)
 
         mockMvc.perform(get("/api/inspection/$inspectionId/export.json"))
             .andExpect(status().isOk)

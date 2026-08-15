@@ -27,10 +27,10 @@ class InspectionReviewServiceImpl(
 ) : InspectionReviewService {
 
     @Transactional
-    override fun edit(inspectionRecordId: Long, values: MappedRecord): InspectionRecord {
+    override fun edit(inspectionRecordId: Long, values: MappedRecord, memo: String?): InspectionRecord {
         val record = record(inspectionRecordId)
         val changes = diffFields(record.current, values) // 이전 편집본 대비 변경분만
-        record.edit(values)
+        record.edit(values, memo)
         record.reevaluatePerRecordFlags(anomalyDetector.detectPerRecord(record.current)) // 편집본 기준 재평가(per-record)
         reevaluateDuplicates(record.inspectionId) // 편집이 형제의 중복 여부까지 바꾸므로 세션 전체 재평가(cross-record)
         changeLogRepository.save(InspectionChangeLog.edited(record, changes))
@@ -51,12 +51,12 @@ class InspectionReviewServiceImpl(
     }
 
     @Transactional
-    override fun confirm(inspectionRecordId: Long, memo: String?): InspectionRecord =
-        transition(inspectionRecordId, InspectionChangeType.CONFIRM) { it.confirm(memo) }
+    override fun confirm(inspectionRecordId: Long): InspectionRecord =
+        transition(inspectionRecordId, InspectionChangeType.CONFIRM) { it.confirm() }
 
     @Transactional
-    override fun reject(inspectionRecordId: Long, memo: String?): InspectionRecord =
-        transition(inspectionRecordId, InspectionChangeType.REJECT) { it.reject(memo) }
+    override fun reject(inspectionRecordId: Long): InspectionRecord =
+        transition(inspectionRecordId, InspectionChangeType.REJECT) { it.reject() }
 
     @Transactional
     override fun confirmAll(inspectionId: Long): BulkConfirmResult {
@@ -68,13 +68,13 @@ class InspectionReviewServiceImpl(
         val (confirmable, blocked) = pending.partition { !it.hasMissingRequired() } // 필수값 누락은 승인 차단
         confirmable.forEach { record ->
             val from = record.status
-            record.confirm() // 일괄 확정 — 메모 없음
+            record.confirm()
             changeLogRepository.save(InspectionChangeLog.transitioned(record, InspectionChangeType.CONFIRM, from))
         }
         return BulkConfirmResult(confirmedCount = confirmable.size, blockedCount = blocked.size)
     }
 
-    /** 상태 전이 공통 — 이전 상태 캡처 → [apply] 전이(메모는 도메인이 세팅) → 이력 기록. */
+    /** 상태 전이 공통 — 이전 상태 캡처 → [apply] 전이 → 이력 기록. */
     private fun transition(
         inspectionRecordId: Long,
         type: InspectionChangeType,

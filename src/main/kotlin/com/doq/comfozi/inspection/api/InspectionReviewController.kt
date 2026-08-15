@@ -24,32 +24,32 @@ class InspectionReviewController(
     private val service: InspectionReviewService,
 ) {
 
-    /** 레코드 편집본(current) 교체. 확정된 레코드면 409. */
-    @Operation(summary = "검수 레코드 편집 (current 교체)")
+    /** 레코드 편집본(current)·메모 교체. 확정된 레코드면 409. */
+    @Operation(summary = "검수 레코드 편집 (current·메모 교체)")
     @PatchMapping("/records/{inspectionRecordId}")
     fun edit(
         @PathVariable inspectionRecordId: Long,
         @RequestBody request: @Valid InspectionRecordEditRequest,
     ): ApiResponse<InspectionRecordResponse> =
-        ApiResponse.ok(InspectionRecordResponse(service.edit(inspectionRecordId, request.toMappedRecord())))
+        ApiResponse.ok(
+            InspectionRecordResponse(service.edit(inspectionRecordId, request.toMappedRecord(), request.memo)),
+        )
 
-    /** 레코드 확정 (NEW/REJECTED → CONFIRMED). 선택적 메모를 이력에 남긴다. */
+    /** 레코드 확정 (NEW/REJECTED → CONFIRMED). */
     @Operation(summary = "검수 레코드 확정")
     @PostMapping("/records/{inspectionRecordId}/confirm")
     fun confirm(
         @PathVariable inspectionRecordId: Long,
-        @RequestBody(required = false) request: InspectionActionRequest?,
     ): ApiResponse<InspectionRecordResponse> =
-        ApiResponse.ok(InspectionRecordResponse(service.confirm(inspectionRecordId, request?.memo)))
+        ApiResponse.ok(InspectionRecordResponse(service.confirm(inspectionRecordId)))
 
-    /** 레코드 반려 (→ REJECTED). 확정 레코드의 편집 잠금을 푸는 경로. 선택적 메모를 이력에 남긴다. */
+    /** 레코드 반려 (→ REJECTED). 확정 레코드의 편집 잠금을 푸는 경로. */
     @Operation(summary = "검수 레코드 반려")
     @PostMapping("/records/{inspectionRecordId}/reject")
     fun reject(
         @PathVariable inspectionRecordId: Long,
-        @RequestBody(required = false) request: InspectionActionRequest?,
     ): ApiResponse<InspectionRecordResponse> =
-        ApiResponse.ok(InspectionRecordResponse(service.reject(inspectionRecordId, request?.memo)))
+        ApiResponse.ok(InspectionRecordResponse(service.reject(inspectionRecordId)))
 
     /** 검수 단위 일괄 확정 — 남은 NEW 레코드 전체를 확정한다(필수값 누락은 건너뜀). */
     @Operation(summary = "검수 일괄 확정 (남은 NEW 레코드 전체, 필수값 누락은 건너뜀)")

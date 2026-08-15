@@ -2,6 +2,8 @@ package com.doq.comfozi.inspection.api
 
 import com.doq.comfozi.inspection.domain.InspectionChangeType
 import com.doq.comfozi.inspection.repository.InspectionChangeLogRepository
+import com.doq.comfozi.structuring.mapping.MappedRecord
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.doq.comfozi.inspection.repository.InspectionRecordRepository
 import com.doq.comfozi.inspection.repository.InspectionRepository
@@ -46,6 +48,13 @@ class InspectionChangeLogTest(
     private fun firstInspectionRecordId(inspectionId: Long): Long =
         recordRepository.findByInspectionIdOrderByIdAsc(inspectionId).first().id!!
 
+    /** 편집 요청 본문 — 편집본 전체([values])에 메모를 얹는다(편집이 값과 메모를 함께 교체한다). */
+    private fun editBody(values: MappedRecord, memo: String? = null): String {
+        val body = objectMapper.convertValue(values, object : TypeReference<MutableMap<String, Any?>>() {})
+        body["memo"] = memo
+        return objectMapper.writeValueAsString(body)
+    }
+
     @Test
     fun `편집하면 EDIT 이력이 바뀐 필드 diff만 남는다`() {
         val inspectionRecordId = firstInspectionRecordId(structured())
@@ -72,44 +81,52 @@ class InspectionChangeLogTest(
     }
 
     @Test
-    fun `확정하면 메모와 상태 전이가 이력에 남는다`() {
+    fun `확정하면 상태 전이만 이력에 남고 편집으로 남긴 메모는 유지된다`() {
         val inspectionRecordId = firstInspectionRecordId(structured())
+        val current = recordRepository.findById(inspectionRecordId).get().current
 
-        // 메모는 레코드에 남고(응답에 노출), 이력에는 상태 전이만 남는다
+        // 메모는 편집으로 남긴다 — 레코드에 붙고(응답에 노출) 이력엔 남지 않는다
         mockMvc.perform(
-            post("/api/inspection/records/$inspectionRecordId/confirm")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"memo":"검토 완료"}"""),
+                .content(editBody(current, "검토 완료")),
         )
             .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.memo").value("검토 완료"))
+
+        // 확정은 메모를 건드리지 않는다
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm"))
+            .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.status").value("CONFIRMED"))
-            .andExpect(jsonPath("$.data.memo").value("검토 완료")) // 메모는 레코드에
+            .andExpect(jsonPath("$.data.memo").value("검토 완료"))
 
         mockMvc.perform(get("/api/inspection/records/$inspectionRecordId/changelog"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.length()").value(1))
-            .andExpect(jsonPath("$.data[0].type").value("CONFIRM"))
-            .andExpect(jsonPath("$.data[0].fromStatus").value("NEW"))
-            .andExpect(jsonPath("$.data[0].toStatus").value("CONFIRMED"))
+            .andExpect(jsonPath("$.data.length()").value(2))
+            .andExpect(jsonPath("$.data[1].type").value("CONFIRM"))
+            .andExpect(jsonPath("$.data[1].fromStatus").value("NEW"))
+            .andExpect(jsonPath("$.data[1].toStatus").value("CONFIRMED"))
     }
 
     @Test
-    fun `반려하면 사유는 레코드에, REJECT 이력이 남는다`() {
+    fun `반려하면 REJECT 이력이 남고 메모는 그대로다`() {
         val inspectionRecordId = firstInspectionRecordId(structured())
-
+        val current = recordRepository.findById(inspectionRecordId).get().current
         mockMvc.perform(
-            post("/api/inspection/records/$inspectionRecordId/reject")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"memo":"규격 재확인 필요"}"""),
-        )
+                .content(editBody(current, "규격 재확인 필요")),
+        ).andExpect(status().isOk)
+
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/reject"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.status").value("REJECTED"))
-            .andExpect(jsonPath("$.data.memo").value("규격 재확인 필요")) // 메모는 레코드에
+            .andExpect(jsonPath("$.data.memo").value("규격 재확인 필요")) // 전이는 메모를 건드리지 않는다
 
         mockMvc.perform(get("/api/inspection/records/$inspectionRecordId/changelog"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data[0].type").value("REJECT"))
-            .andExpect(jsonPath("$.data[0].toStatus").value("REJECTED"))
+            .andExpect(jsonPath("$.data[1].type").value("REJECT"))
+            .andExpect(jsonPath("$.data[1].toStatus").value("REJECTED"))
     }
 
     @Test
@@ -140,7 +157,7 @@ class InspectionChangeLogTest(
     }
 
     @Test
-    fun `본문 없이 확정하면 메모는 null`() {
+    fun `편집으로 메모를 남긴 적 없으면 확정해도 메모는 null`() {
         val inspectionRecordId = firstInspectionRecordId(structured())
 
         mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm"))

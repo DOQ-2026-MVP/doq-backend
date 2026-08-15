@@ -60,7 +60,7 @@ class InspectionRecord(
     @Column(nullable = false)
     var status: InspectionRecordStatus = InspectionRecordStatus.NEW,
 
-    /** 현재 검수 메모 — 최신 확정/반려 사유. 전이 시 갱신(없이 호출하면 비워짐). */
+    /** 검수 메모 — 검수자가 남기는 코멘트. 편집([edit])에서만 갱신하고, 상태 전이는 손대지 않는다. */
     @Column(length = 1000)
     var memo: String? = null,
 
@@ -71,12 +71,17 @@ class InspectionRecord(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
 
-    /** 편집본([current]) 교체 — 검수자가 관찰값을 교정한다. 확정된 레코드는 잠겨 있어 편집 불가(먼저 반려해야 함). */
-    fun edit(values: MappedRecord) {
+    /**
+     * 편집본([current])·[memo] 교체 — 검수자가 관찰값을 교정하고 코멘트를 남긴다.
+     * 값과 마찬가지로 메모도 전체 교체다 — [memo]를 비워 보내면 비워진다.
+     * 확정된 레코드는 잠겨 있어 편집 불가(먼저 반려해야 함).
+     */
+    fun edit(values: MappedRecord, memo: String? = null) {
         check(status != InspectionRecordStatus.CONFIRMED) {
             "확정된(CONFIRMED) 레코드는 편집할 수 없습니다 — 먼저 반려(REJECT)하세요"
         }
         current = values
+        this.memo = memo
     }
 
     /** 편집본([current])에 필수값 공란이 남아 있는지 — 승인 차단 판단용(요구사항 §6). */
@@ -106,20 +111,18 @@ class InspectionRecord(
     }
 
     /**
-     * 확정 — 검수 완료. NEW/REJECTED에서 전이하며, 이미 CONFIRMED면 멱등(상태는 무변화, [memo]는 갱신).
-     * 필수값이 누락된 레코드는 확정할 수 없다(먼저 값을 채워야 함).
+     * 확정 — 검수 완료. NEW/REJECTED에서 전이하며, 이미 CONFIRMED면 멱등.
+     * 필수값이 누락된 레코드는 확정할 수 없다(먼저 값을 채워야 함). [memo]는 편집의 몫이라 건드리지 않는다.
      */
-    fun confirm(memo: String? = null) {
+    fun confirm() {
         check(!hasMissingRequired()) {
             "필수값이 누락되어 확정할 수 없습니다 — 먼저 누락 필드를 채우세요"
         }
         status = InspectionRecordStatus.CONFIRMED
-        this.memo = memo
     }
 
-    /** 반려 — 다시 손봐야 함. 확정된 레코드의 편집 잠금을 푸는 경로이기도 하다(멱등). [memo]로 사유를 남긴다. */
-    fun reject(memo: String? = null) {
+    /** 반려 — 다시 손봐야 함. 확정된 레코드의 편집 잠금을 푸는 경로이기도 하다(멱등). */
+    fun reject() {
         status = InspectionRecordStatus.REJECTED
-        this.memo = memo
     }
 }
