@@ -74,7 +74,7 @@ class StructuringServiceImpl(
         flags: List<Set<AnomalyRuleBasedFlag>>,
     ): List<StructuredRecord> = records.mapIndexed { i, record ->
         StructuredRecord(
-            recordId = requireNotNull(record.id),
+            ingestionRecordId = requireNotNull(record.id),
             uploadType = record.uploadRef?.uploadType,
             rowNo = record.uploadRef?.rowNo,
             observed = observed[i],

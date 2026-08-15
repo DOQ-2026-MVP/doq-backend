@@ -18,12 +18,12 @@ data class IngestionStateEvent(
 
 /**
  * 이벤트를 보낸 계기 — 화면 알림 문구용. 결과 상태는 [IngestionStateEvent.state]에 있다.
- * [uploadId]/[recordId]/[addedCount]는 계기에 해당하는 것만 채워진다.
+ * [uploadId]/[ingestionRecordId]/[addedCount]는 계기에 해당하는 것만 채워진다.
  */
 data class IngestionChangeResponse(
     val type: Type,
     val uploadId: Long? = null,
-    val recordId: Long? = null,
+    val ingestionRecordId: Long? = null,
     val addedCount: Int? = null,
 ) {
     enum class Type {
@@ -65,10 +65,10 @@ data class IngestionChangeResponse(
                 IngestionChangeResponse(Type.RECORDS_ADDED, addedCount = change.addedCount)
 
             is IngestionChange.RecordUpdated ->
-                IngestionChangeResponse(Type.RECORD_UPDATED, recordId = change.recordId)
+                IngestionChangeResponse(Type.RECORD_UPDATED, ingestionRecordId = change.ingestionRecordId)
 
             is IngestionChange.RecordDeleted ->
-                IngestionChangeResponse(Type.RECORD_DELETED, recordId = change.recordId)
+                IngestionChangeResponse(Type.RECORD_DELETED, ingestionRecordId = change.ingestionRecordId)
 
             IngestionChange.SessionCleared ->
                 IngestionChangeResponse(Type.SESSION_CLEARED)

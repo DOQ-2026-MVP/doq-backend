@@ -55,8 +55,8 @@ class IngestionRecordMutationTest(
     private fun records(ingestionId: Long): List<IngestionRecord> =
         recordRepository.findByIngestionIdOrderByIdAsc(ingestionId)
 
-    private fun fileRecordId(ingestionId: Long) = records(ingestionId).first { it.uploadRef != null }.id!!
-    private fun manualRecordId(ingestionId: Long) = records(ingestionId).first { it.uploadRef == null }.id!!
+    private fun fileIngestionRecordId(ingestionId: Long) = records(ingestionId).first { it.uploadRef != null }.id!!
+    private fun manualIngestionRecordId(ingestionId: Long) = records(ingestionId).first { it.uploadRef == null }.id!!
 
     private fun body(docId: String = "MAN-1", rawItemName: String = "고친품목", priceAfter: Long = 2200) =
         AppObjectMapper.instance.writeValueAsString(
@@ -76,16 +76,16 @@ class IngestionRecordMutationTest(
     @Test
     fun `PUT 수기 행 - 원문을 교체한다`() {
         val id = seed()
-        val recordId = manualRecordId(id)
+        val ingestionRecordId = manualIngestionRecordId(id)
 
-        mockMvc.perform(put("/api/ingestion/$id/records/$recordId").contentType(MediaType.APPLICATION_JSON).content(body()))
+        mockMvc.perform(put("/api/ingestion/$id/records/$ingestionRecordId").contentType(MediaType.APPLICATION_JSON).content(body()))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.id").value(recordId))
+            .andExpect(jsonPath("$.data.id").value(ingestionRecordId))
             .andExpect(jsonPath("$.data.content.rawItemName").value("고친품목"))
             .andExpect(jsonPath("$.data.content.priceAfter").value("2200"))
             .andExpect(jsonPath("$.data.uploadId").isEmpty) // 수기 행 그대로
 
-        val saved = recordRepository.findByIdOrNull(recordId)!!
+        val saved = recordRepository.findByIdOrNull(ingestionRecordId)!!
         assertEquals("고친품목", saved.content.values["rawItemName"])
         assertEquals("2026-09-01", saved.content.values["effectiveDate"])
     }
@@ -93,13 +93,13 @@ class IngestionRecordMutationTest(
     @Test
     fun `PUT 파일 출처 행은 409 - 원본 근거는 인입 단계에서 못 고친다`() {
         val id = seed()
-        val recordId = fileRecordId(id)
+        val ingestionRecordId = fileIngestionRecordId(id)
 
-        mockMvc.perform(put("/api/ingestion/$id/records/$recordId").contentType(MediaType.APPLICATION_JSON).content(body()))
+        mockMvc.perform(put("/api/ingestion/$id/records/$ingestionRecordId").contentType(MediaType.APPLICATION_JSON).content(body()))
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.error.code").value("CONFLICT"))
 
-        assertEquals("DOC-001", recordRepository.findByIdOrNull(recordId)!!.content.values["문서ID"])
+        assertEquals("DOC-001", recordRepository.findByIdOrNull(ingestionRecordId)!!.content.values["문서ID"])
     }
 
     @Test
@@ -107,7 +107,7 @@ class IngestionRecordMutationTest(
         val id = seed()
 
         mockMvc.perform(
-            put("/api/ingestion/$id/records/${manualRecordId(id)}")
+            put("/api/ingestion/$id/records/${manualIngestionRecordId(id)}")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"docId":"MAN-1"}"""),
         )
@@ -118,13 +118,13 @@ class IngestionRecordMutationTest(
     @Test
     fun `DELETE 행 - 그 행만 사라지고 나머지는 남는다`() {
         val id = seed()
-        val recordId = manualRecordId(id)
+        val ingestionRecordId = manualIngestionRecordId(id)
 
-        mockMvc.perform(delete("/api/ingestion/$id/records/$recordId"))
+        mockMvc.perform(delete("/api/ingestion/$id/records/$ingestionRecordId"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.status").value("DRAFT"))
 
-        assertNull(recordRepository.findByIdOrNull(recordId))
+        assertNull(recordRepository.findByIdOrNull(ingestionRecordId))
         assertEquals(2, records(id).size) // 파일 1 + 수기 1
     }
 
@@ -132,7 +132,7 @@ class IngestionRecordMutationTest(
     fun `DELETE 파일 출처 행도 지울 수 있고 업로드는 남는다`() {
         val id = seed()
 
-        mockMvc.perform(delete("/api/ingestion/$id/records/${fileRecordId(id)}"))
+        mockMvc.perform(delete("/api/ingestion/$id/records/${fileIngestionRecordId(id)}"))
             .andExpect(status().isOk)
 
         assertEquals(0, records(id).count { it.uploadRef != null })
@@ -145,12 +145,12 @@ class IngestionRecordMutationTest(
     @Test
     fun `완료(STRUCTURED) 세션은 행 삭제·수정 모두 409`() {
         val id = seed()
-        val recordId = manualRecordId(id)
+        val ingestionRecordId = manualIngestionRecordId(id)
         ingestionRepository.save(ingestionRepository.findByIdOrNull(id)!!.apply { markStructured() })
 
-        mockMvc.perform(delete("/api/ingestion/$id/records/$recordId"))
+        mockMvc.perform(delete("/api/ingestion/$id/records/$ingestionRecordId"))
             .andExpect(status().isConflict)
-        mockMvc.perform(put("/api/ingestion/$id/records/$recordId").contentType(MediaType.APPLICATION_JSON).content(body()))
+        mockMvc.perform(put("/api/ingestion/$id/records/$ingestionRecordId").contentType(MediaType.APPLICATION_JSON).content(body()))
             .andExpect(status().isConflict)
 
         assertEquals(3, records(id).size)
@@ -160,7 +160,7 @@ class IngestionRecordMutationTest(
     fun `다른 세션의 행 id면 404`() {
         val mine = seed()
         val other = seed()
-        val othersRecord = manualRecordId(other)
+        val othersRecord = manualIngestionRecordId(other)
 
         mockMvc.perform(delete("/api/ingestion/$mine/records/$othersRecord"))
             .andExpect(status().isNotFound)

@@ -48,16 +48,16 @@ class InspectionReadController(
         return ApiResponse.ok(detail(inspection))
     }
 
-    /** 레코드(recordId)의 변경 이력 — 편집·확정·반려를 시각순으로. 레코드 없으면 404. */
+    /** 검수 레코드([inspectionRecordId])의 변경 이력 — 편집·확정·반려를 시각순으로. 레코드 없으면 404. */
     @Operation(summary = "검수 레코드 변경 이력 조회")
-    @GetMapping("/records/{recordId}/changelog")
+    @GetMapping("/records/{inspectionRecordId}/changelog")
     fun changelog(
-        @PathVariable recordId: Long,
+        @PathVariable inspectionRecordId: Long,
     ): ApiResponse<List<InspectionChangeLogResponse>> {
-        if (!inspectionRecordRepository.existsById(recordId)) {
-            throw NoSuchElementException("알 수 없는 검수 레코드 $recordId")
+        if (!inspectionRecordRepository.existsById(inspectionRecordId)) {
+            throw NoSuchElementException("알 수 없는 검수 레코드 $inspectionRecordId")
         }
-        val logs = inspectionChangeLogRepository.findByRecordIdOrderByIdAsc(recordId)
+        val logs = inspectionChangeLogRepository.findByInspectionRecordIdOrderByIdAsc(inspectionRecordId)
             .map(::InspectionChangeLogResponse)
         return ApiResponse.ok(logs)
     }

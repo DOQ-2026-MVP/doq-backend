@@ -80,24 +80,24 @@ class IngestionController(
      * 파일 출처 행은 원본 근거라 대상이 아니다(409) — 구조화 이후 검수 단계에서 수정한다.
      */
     @Operation(summary = "수기 행 수정 (9필드 전체 교체)")
-    @PutMapping("/{ingestionId}/records/{recordId}")
+    @PutMapping("/{ingestionId}/records/{ingestionRecordId}")
     fun updateManualRecord(
         @PathVariable ingestionId: Long,
-        @PathVariable recordId: Long,
+        @PathVariable ingestionRecordId: Long,
         @Valid @RequestBody request: IngestionManualRecordRequest,
     ): ApiResponse<IngestionRecordResponse> {
-        val record = service.updateManualRecord(ingestionId, recordId, request.toInput())
+        val record = service.updateManualRecord(ingestionId, ingestionRecordId, request.toInput())
         return ApiResponse.ok(data = IngestionRecordResponse(record))
     }
 
     /** 원본 행 1건 삭제 (수기·파일 무관). */
     @Operation(summary = "원본 행 1건 삭제")
-    @DeleteMapping("/{ingestionId}/records/{recordId}")
+    @DeleteMapping("/{ingestionId}/records/{ingestionRecordId}")
     fun deleteRecord(
         @PathVariable ingestionId: Long,
-        @PathVariable recordId: Long,
+        @PathVariable ingestionRecordId: Long,
     ): ApiResponse<IngestionState> {
-        val ingestion = service.deleteRecord(ingestionId, recordId)
+        val ingestion = service.deleteRecord(ingestionId, ingestionRecordId)
 
         return state(ingestion)
     }

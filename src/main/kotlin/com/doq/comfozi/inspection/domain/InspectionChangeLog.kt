@@ -21,8 +21,9 @@ class InspectionChangeLog(
     @Column(name = "inspection_id", nullable = false, updatable = false)
     val inspectionId: Long,
 
-    @Column(name = "record_id", nullable = false, updatable = false)
-    val recordId: Long,
+    /** 이력이 붙는 [InspectionRecord]의 id(검수 레코드 PK) — 인입 원본 행 id가 아니다. */
+    @Column(name = "inspection_record_id", nullable = false, updatable = false)
+    val inspectionRecordId: Long,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, updatable = false)
@@ -54,7 +55,7 @@ class InspectionChangeLog(
             changes: List<FieldChange>
         ) = InspectionChangeLog(
             inspectionId = record.inspectionId,
-            recordId = requireNotNull(record.id),
+            inspectionRecordId = requireNotNull(record.id),
             type = InspectionChangeType.EDIT,
             fromStatus = null,
             toStatus = null,
@@ -68,7 +69,7 @@ class InspectionChangeLog(
             from: InspectionRecordStatus,
         ) = InspectionChangeLog(
             inspectionId = record.inspectionId,
-            recordId = requireNotNull(record.id),
+            inspectionRecordId = requireNotNull(record.id),
             type = type,
             fromStatus = from,
             toStatus = record.status,

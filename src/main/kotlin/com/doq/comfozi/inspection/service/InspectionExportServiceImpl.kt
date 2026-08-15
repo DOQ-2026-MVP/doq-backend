@@ -37,23 +37,24 @@ class InspectionExportServiceImpl(
             .filter { it.status == InspectionRecordStatus.CONFIRMED } // 승인 항목만
         if (approved.isEmpty()) return emptyList()
 
-        // file_name 조인 — InspectionRecord.recordId → IngestionRecord.uploadRef.uploadId → IngestionUpload.fileName
-        val ingestionRecords = ingestionRecordRepository.findAllById(approved.map { it.recordId })
+        // file_name 조인 — InspectionRecord.ingestionRecordId → IngestionRecord.uploadRef.uploadId → IngestionUpload.fileName
+        val ingestionRecords = ingestionRecordRepository.findAllById(approved.map { it.ingestionRecordId })
             .associateBy { it.id }
         val uploadIds = ingestionRecords.values.mapNotNull { it.uploadRef?.uploadId }.distinct()
         val fileNameByUploadId = ingestionUploadRepository.findAllById(uploadIds)
             .associate { it.id to it.fileName }
 
         // change_log 임베드 — 승인 레코드들의 이력을 한 번에
-        val logsByRecordId = changeLogRepository.findByRecordIdInOrderByIdAsc(approved.mapNotNull { it.id })
-            .groupBy { it.recordId }
+        val logsByInspectionRecordId = changeLogRepository
+            .findByInspectionRecordIdInOrderByIdAsc(approved.mapNotNull { it.id })
+            .groupBy { it.inspectionRecordId }
 
         return approved.map { record ->
-            val uploadId = ingestionRecords[record.recordId]?.uploadRef?.uploadId
+            val uploadId = ingestionRecords[record.ingestionRecordId]?.uploadRef?.uploadId
             toExportRow(
                 record = record,
                 fileName = uploadId?.let { fileNameByUploadId[it] },
-                logs = logsByRecordId[record.id].orEmpty(),
+                logs = logsByInspectionRecordId[record.id].orEmpty(),
             )
         }
     }
