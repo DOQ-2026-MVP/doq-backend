@@ -39,14 +39,14 @@ data class ExportSourceRef(
     val rowNo: Int?,
 )
 
-/** 변경 이력 1건(평탄) — 편집이면 필드 diff, 전이면 review_status 변화. */
+/** 변경 이력 1건(평탄) — 편집이면 필드 diff, 전이면 review_status 변화. 초기화는 둘 다 남는다. */
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class ExportChangeLogEntry(
     val at: OffsetDateTime,
     val field: String?,
     val from: String?,
     val to: String?,
-    val action: String, // "edit" | "confirm" | "reject"
+    val action: String, // "edit" | "confirm" | "reject" | "reset"
 )
 
 /** export 스키마 매핑 — 상태·플래그·가격·필드ID를 권장 스키마 값으로 변환하는 단일 출처. */

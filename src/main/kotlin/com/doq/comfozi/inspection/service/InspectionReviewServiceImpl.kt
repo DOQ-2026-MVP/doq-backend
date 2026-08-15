@@ -31,10 +31,26 @@ class InspectionReviewServiceImpl(
         val record = record(inspectionRecordId)
         val changes = diffFields(record.current, values) // 이전 편집본 대비 변경분만
         record.edit(values, memo)
-        record.reevaluatePerRecordFlags(anomalyDetector.detectPerRecord(record.current)) // 편집본 기준 재평가(per-record)
-        reevaluateDuplicates(record.inspectionId) // 편집이 형제의 중복 여부까지 바꾸므로 세션 전체 재평가(cross-record)
+        reevaluateFlags(record)
         changeLogRepository.save(InspectionChangeLog.edited(record, changes))
         return record
+    }
+
+    @Transactional
+    override fun reset(inspectionRecordId: Long): InspectionRecord {
+        val record = record(inspectionRecordId)
+        val from = record.status
+        val changes = diffFields(record.current, record.observed) // 되돌리며 사라지는 교정분
+        record.reset()
+        reevaluateFlags(record) // 관찰값으로 돌아갔으니 플래그도 인계 직후 판정으로 되돌아간다
+        changeLogRepository.save(InspectionChangeLog.reset(record, from, changes))
+        return record
+    }
+
+    /** 값이 바뀐 뒤의 플래그 재평가 — 자신은 per-record(누락·규격·단위), 세션 전체는 중복(cross-record). */
+    private fun reevaluateFlags(record: InspectionRecord) {
+        record.reevaluatePerRecordFlags(anomalyDetector.detectPerRecord(record.current))
+        reevaluateDuplicates(record.inspectionId) // 한 건의 변경이 형제의 중복 여부까지 바꾼다
     }
 
     /**

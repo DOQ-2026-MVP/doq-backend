@@ -13,9 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * 검수(Inspection) 쓰기 API — 검수자가 레코드를 교정·확정·반려한다.
+ * 검수(Inspection) 쓰기 API — 검수자가 레코드를 교정·확정·반려·초기화한다.
  *
- * 레코드 단위 편집/확정/반려 + 검수 단위 일괄 확정. 대상이 없으면 404, 확정된 레코드 편집은 409(편집 잠금).
+ * 레코드 단위 편집/확정/반려/초기화 + 검수 단위 일괄 확정. 대상이 없으면 404, 확정된 레코드 편집은 409(편집 잠금).
  */
 @Tag(name = "검수(Inspection)", description = "구조화 결과를 사람이 검수·확정하는 쓰기 API")
 @RestController
@@ -50,6 +50,14 @@ class InspectionReviewController(
         @PathVariable inspectionRecordId: Long,
     ): ApiResponse<InspectionRecordResponse> =
         ApiResponse.ok(InspectionRecordResponse(service.reject(inspectionRecordId)))
+
+    /** 레코드 초기화 (→ NEW). 편집본을 관찰값으로 되돌리고 메모를 지운다. 확정된 레코드에도 쓸 수 있다. */
+    @Operation(summary = "검수 레코드 초기화 (관찰값으로 되돌리고 NEW 로)")
+    @PostMapping("/records/{inspectionRecordId}/reset")
+    fun reset(
+        @PathVariable inspectionRecordId: Long,
+    ): ApiResponse<InspectionRecordResponse> =
+        ApiResponse.ok(InspectionRecordResponse(service.reset(inspectionRecordId)))
 
     /** 검수 단위 일괄 확정 — 남은 NEW 레코드 전체를 확정한다(필수값 누락은 건너뜀). */
     @Operation(summary = "검수 일괄 확정 (남은 NEW 레코드 전체, 필수값 누락은 건너뜀)")

@@ -13,6 +13,7 @@ import com.doq.comfozi.structuring.StructuringService
 import com.doq.comfozi.structuring.awaitInspection
 import com.doq.comfozi.ingestion.manualInput
 import com.doq.comfozi.ingestion.service.IngestionService
+import org.hamcrest.Matchers.nullValue
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
@@ -304,6 +305,66 @@ class InspectionReviewControllerTest(
         // 메모도 전체 교체 대상 — 다음 편집에서 빠지면 비워진다
         patchEdit(inspectionRecordId, recordRepository.findById(inspectionRecordId).get().current)
         assertNull(recordRepository.findById(inspectionRecordId).get().memo)
+    }
+
+    @Test
+    fun `POST record reset - 편집본과 메모를 되돌리고 NEW 로`() {
+        val inspectionRecordId = firstInspectionRecordId(structured())
+        val observed = recordRepository.findById(inspectionRecordId).get().observed
+
+        mockMvc.perform(
+            patch("/api/inspection/records/$inspectionRecordId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"supplier":"교정공급사","memo":"손봄"}"""),
+        ).andExpect(status().isOk)
+
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/reset"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.status").value("NEW"))
+            .andExpect(jsonPath("$.data.memo").value(nullValue()))
+            .andExpect(jsonPath("$.data.current.supplier").value(observed.supplier))
+
+        val after = recordRepository.findById(inspectionRecordId).get()
+        assertEquals(InspectionRecordStatus.NEW, after.status)
+        assertEquals(observed, after.current)
+        assertNull(after.memo)
+    }
+
+    @Test
+    fun `POST record reset - 확정된 레코드도 되돌아가 다시 편집할 수 있다`() {
+        val inspectionRecordId = firstInspectionRecordId(structured())
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm")).andExpect(status().isOk)
+
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/reset"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.status").value("NEW"))
+
+        // 편집 잠금이 풀렸다
+        mockMvc.perform(
+            patch("/api/inspection/records/$inspectionRecordId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"supplier":"다시교정"}"""),
+        ).andExpect(status().isOk)
+    }
+
+    @Test
+    fun `POST record reset - 플래그도 인계 직후 판정으로 되돌아간다`() {
+        val inspectionId = structured() // DOC-2 = 중복 의심
+        val dup = recordRepository.findByInspectionIdOrderByIdAsc(inspectionId)
+            .first { DUPLICATE_SUSPECTED in it.flags }
+        patchEdit(dup.id!!, dup.current.copy(supplier = "다른공급사")) // 중복키를 깨 플래그 해소
+        assertEquals(emptySet(), recordRepository.findById(dup.id!!).get().flags)
+
+        mockMvc.perform(post("/api/inspection/records/${dup.id}/reset")).andExpect(status().isOk)
+
+        assertEquals(setOf(DUPLICATE_SUSPECTED), recordRepository.findById(dup.id!!).get().flags)
+    }
+
+    @Test
+    fun `POST record reset - 없는 레코드면 404`() {
+        mockMvc.perform(post("/api/inspection/records/999999/reset"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
     }
 
     @Test

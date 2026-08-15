@@ -13,7 +13,7 @@ import java.time.LocalDateTime
  * [InspectionRecord.memo]에 둔다 — 이력엔 남기지 않음)
  * - [type]                  : 무슨 변경인지([InspectionChangeType])
  * - [fromStatus]/[toStatus] : 상태 전이의 이전/이후(편집이면 둘 다 null)
- * - [changes]               : 편집으로 바뀐 필드 diff(전이면 빈 목록)
+ * - [changes]               : 바뀐 필드 diff(값을 건드리지 않는 전이면 빈 목록)
  */
 @Entity
 @Table(name = "inspection_changelog")
@@ -74,6 +74,23 @@ class InspectionChangeLog(
             fromStatus = from,
             toStatus = record.status,
             changes = emptyList(),
+        )
+
+        /**
+         * 초기화(RESET) 이력 — 전이([from]→NEW)와 되돌린 필드 [changes]를 함께 남긴다.
+         * 무엇을 되돌렸는지가 남아야 초기화 전 편집본을 이력만으로 복원할 수 있다.
+         */
+        fun reset(
+            record: InspectionRecord,
+            from: InspectionRecordStatus,
+            changes: List<FieldChange>,
+        ) = InspectionChangeLog(
+            inspectionId = record.inspectionId,
+            inspectionRecordId = requireNotNull(record.id),
+            type = InspectionChangeType.RESET,
+            fromStatus = from,
+            toStatus = record.status,
+            changes = changes,
         )
     }
 }

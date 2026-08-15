@@ -130,6 +130,31 @@ class InspectionChangeLogTest(
     }
 
     @Test
+    fun `초기화하면 되돌린 필드 diff와 NEW 전이가 RESET 이력에 남는다`() {
+        val inspectionRecordId = firstInspectionRecordId(structured())
+        val observed = recordRepository.findById(inspectionRecordId).get().observed
+        mockMvc.perform(
+            patch("/api/inspection/records/$inspectionRecordId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(editBody(observed.copy(supplier = "교정공급사"))),
+        ).andExpect(status().isOk)
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm")).andExpect(status().isOk)
+
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/reset")).andExpect(status().isOk)
+
+        mockMvc.perform(get("/api/inspection/records/$inspectionRecordId/changelog"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.length()").value(3))
+            .andExpect(jsonPath("$.data[2].type").value("RESET"))
+            .andExpect(jsonPath("$.data[2].fromStatus").value("CONFIRMED"))
+            .andExpect(jsonPath("$.data[2].toStatus").value("NEW"))
+            .andExpect(jsonPath("$.data[2].changes.length()").value(1)) // 되돌린 supplier 한 필드
+            .andExpect(jsonPath("$.data[2].changes[0].field").value("supplier"))
+            .andExpect(jsonPath("$.data[2].changes[0].before").value("교정공급사"))
+            .andExpect(jsonPath("$.data[2].changes[0].after").value(observed.supplier))
+    }
+
+    @Test
     fun `여러 변경이 시각순으로 누적된다`() {
         val inspectionRecordId = firstInspectionRecordId(structured())
 

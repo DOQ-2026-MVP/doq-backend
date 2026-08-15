@@ -143,11 +143,11 @@ src/main/kotlin/com/doq/
    │  └─ detection/                   이상 탐지 — AnomalyDetector 포트 + 규칙 기반 구현·규칙(AnomalyRule)·플래그 enum
    └─ inspection/                     ── 검수(사람) ──
       ├─ InspectionIntakeListener.kt  StructuredRecords 이벤트 수신 → 검수 인박스 영속(저장만)
-      ├─ api/                         조회·검수(편집/확정/반려)·export 컨트롤러 + DTO,
+      ├─ api/                         조회·검수(편집/확정/반려/초기화)·export 컨트롤러 + DTO,
       │                               export 행 스키마(ExportRow)와 CSV writer
       ├─ domain/                      Inspection·InspectionRecord·변경 이력(InspectionChangeLog) 엔티티, 상태 enum
       ├─ repository/                  Spring Data JPA 리포지토리 3종
-      └─ service/                     InspectionReviewService(편집·확정·반려)·InspectionExportService (+ Impl)
+      └─ service/                     InspectionReviewService(편집·확정·반려·초기화)·InspectionExportService (+ Impl)
 ```
 
 읽는 순서를 하나 고르자면 `StructuringServiceImpl` → `mapping`/`normalization`/`detection` →

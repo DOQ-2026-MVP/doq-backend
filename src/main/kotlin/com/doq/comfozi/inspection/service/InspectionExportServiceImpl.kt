@@ -91,26 +91,33 @@ class InspectionExportServiceImpl(
 
     /** 이력 1건 → export 항목. 편집은 필드 diff별로, 전이는 review_status 변화 1건으로 평탄화. */
     private fun toChangeLogEntries(log: InspectionChangeLog): List<ExportChangeLogEntry> = when (log.type) {
-        InspectionChangeType.EDIT -> log.changes.map { change ->
+        InspectionChangeType.EDIT -> fieldEntries(log, "edit")
+
+        InspectionChangeType.CONFIRM, InspectionChangeType.REJECT ->
+            listOf(statusEntry(log, log.type.name.lowercase()))
+
+        // 초기화는 값 되돌림과 상태 전이가 한 번에 일어난다 — 되돌린 필드들 + review_status 변화
+        InspectionChangeType.RESET -> fieldEntries(log, "reset") + statusEntry(log, "reset")
+    }
+
+    private fun fieldEntries(log: InspectionChangeLog, action: String): List<ExportChangeLogEntry> =
+        log.changes.map { change ->
             ExportChangeLogEntry(
                 at = log.createdAt.kst(),
                 field = ExportSchema.fieldId(change.field),
                 from = change.before,
                 to = change.after,
-                action = "edit",
+                action = action,
             )
         }
 
-        InspectionChangeType.CONFIRM, InspectionChangeType.REJECT -> listOf(
-            ExportChangeLogEntry(
-                at = log.createdAt.kst(),
-                field = "review_status",
-                from = log.fromStatus?.let { ExportSchema.reviewStatus(it) },
-                to = log.toStatus?.let { ExportSchema.reviewStatus(it) },
-                action = log.type.name.lowercase(),
-            ),
-        )
-    }
+    private fun statusEntry(log: InspectionChangeLog, action: String) = ExportChangeLogEntry(
+        at = log.createdAt.kst(),
+        field = "review_status",
+        from = log.fromStatus?.let { ExportSchema.reviewStatus(it) },
+        to = log.toStatus?.let { ExportSchema.reviewStatus(it) },
+        action = action,
+    )
 
     /** 저장된 LocalDateTime(서버 로컬 = KST 가정)을 +09:00 오프셋으로. */
     private fun LocalDateTime.kst(): OffsetDateTime = atOffset(ZoneOffset.of("+09:00"))

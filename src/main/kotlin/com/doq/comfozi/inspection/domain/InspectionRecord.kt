@@ -125,4 +125,17 @@ class InspectionRecord(
     fun reject() {
         status = InspectionRecordStatus.REJECTED
     }
+
+    /**
+     * 초기화 — 인계받은 직후(검수 전) 상태로 되돌린다. 편집본을 관찰값으로 되돌리고 메모를 지우며 [NEW][InspectionRecordStatus.NEW]로.
+     *
+     * 확정·반려 어느 상태에서든 부를 수 있다(편집 잠금과 무관 — 잠금을 푸는 것이 초기화의 일이다).
+     * 플래그는 되돌린 값 기준으로 다시 판정해야 하므로 서비스가 재평가한다.
+     * 이미 NEW이고 손댄 적 없는 레코드라면 아무것도 바뀌지 않는다(멱등).
+     */
+    fun reset() {
+        status = InspectionRecordStatus.NEW
+        current = observed.copy() // 사본으로 — 이후 편집이 불변 스냅샷([observed])까지 건드리면 안 된다
+        memo = null
+    }
 }
