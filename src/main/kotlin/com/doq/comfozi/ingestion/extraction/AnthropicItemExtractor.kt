@@ -17,8 +17,7 @@ import org.springframework.stereotype.Component
  * 기본 모델이 작은 축인 것도 같은 이유다 — 짧은 텍스트에서 정해진 7필드를 뽑는 구조화 작업이라
  * 큰 모델이 필요하지 않다. 추출 품질이 아쉬우면 `ANTHROPIC_MODEL` 로 올리면 된다.
  *
- * [AnthropicClient] 빈이 있을 때만(= `ANTHROPIC_API_KEY` 설정 시) 활성화된다. 없으면 이 빈도 없고,
- * PDF 는 추출 없이 보관만 된다(행 0건).
+ * [AnthropicClient] 빈이 있을 때만(= `ANTHROPIC_API_KEY` 설정 시) 활성화된다.
  */
 @Component
 @ConditionalOnBean(AnthropicClient::class)
