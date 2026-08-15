@@ -18,6 +18,24 @@ class IngestionReadServiceImpl(
     private val recordRepository: IngestionRecordRepository,
 ) : IngestionReadService {
 
+    override fun getSessions(): List<IngestionSessionSummary> {
+        val uploadCounts = uploadRepository.countGroupedByIngestionId().toCountMap()
+        val recordCounts = recordRepository.countGroupedByIngestionId().toCountMap()
+
+        return ingestionRepository.findAllByOrderByIdAsc().map { ingestion ->
+            val id = requireNotNull(ingestion.id)
+            IngestionSessionSummary(
+                ingestion = ingestion,
+                uploadCount = uploadCounts[id] ?: 0,
+                recordCount = recordCounts[id] ?: 0,
+            )
+        }
+    }
+
+    /** `[ingestionId, count]` 튜플 목록을 조회용 맵으로. 집계가 없는 세션은 키가 아예 없다(=0). */
+    private fun List<Array<Any>>.toCountMap(): Map<Long, Int> =
+        associate { (it[0] as Number).toLong() to (it[1] as Number).toInt() }
+
     override fun getSession(ingestionId: Long): Ingestion =
         ingestionRepository.findByIdOrNull(ingestionId)
             ?: throw NoSuchElementException("알 수 없는 Ingestion 세션 $ingestionId")
