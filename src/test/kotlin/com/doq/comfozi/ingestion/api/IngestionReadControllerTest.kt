@@ -2,7 +2,9 @@ package com.doq.comfozi.ingestion.api
 
 import com.doq.comfozi.ingestion.awaitParsed
 import com.doq.comfozi.ingestion.manualInput
+import com.doq.comfozi.ingestion.domain.Ingestion
 import com.doq.comfozi.ingestion.repository.IngestionRecordRepository
+import com.doq.comfozi.ingestion.repository.IngestionRepository
 import com.doq.comfozi.ingestion.repository.IngestionUploadRepository
 import com.doq.comfozi.ingestion.service.IngestionFileInput
 import com.doq.comfozi.ingestion.service.IngestionService
@@ -32,6 +34,7 @@ class IngestionReadControllerTest(
     @Autowired val service: IngestionService,
     @Autowired val uploadRepository: IngestionUploadRepository,
     @Autowired val recordRepository: IngestionRecordRepository,
+    @Autowired val ingestionRepository: IngestionRepository,
 ) {
 
     private val goldenCsv: ByteArray =
@@ -141,5 +144,29 @@ class IngestionReadControllerTest(
         mockMvc.perform(get("/api/ingestion/999999/records"))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
+    }
+
+    @Test
+    fun `GET 목록은 세션당 한 줄로 업로드·행 수와 상태를 반환한다`() {
+        val ingestionId = uploadGolden()
+
+        mockMvc.perform(get("/api/ingestion"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data[?(@.ingestionId == %d)].status".format(ingestionId)).value("DRAFT"))
+            .andExpect(jsonPath("$.data[?(@.ingestionId == %d)].uploadCount".format(ingestionId)).value(1))
+            .andExpect(jsonPath("$.data[?(@.ingestionId == %d)].recordCount".format(ingestionId)).value(20))
+            .andExpect(jsonPath("$.data[?(@.ingestionId == %d)].createdAt".format(ingestionId)).isNotEmpty)
+    }
+
+    /** 아무것도 안 올라온 세션도 목록에는 나와야 한다 — 0건이라고 사라지면 화면에서 세션을 잃는다. */
+    @Test
+    fun `GET 목록은 빈 세션도 0으로 세어 포함한다`() {
+        val emptyId = ingestionRepository.save(Ingestion()).id!!
+
+        mockMvc.perform(get("/api/ingestion"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data[?(@.ingestionId == %d)].uploadCount".format(emptyId)).value(0))
+            .andExpect(jsonPath("$.data[?(@.ingestionId == %d)].recordCount".format(emptyId)).value(0))
     }
 }

@@ -2,6 +2,8 @@ package com.doq.comfozi.ingestion.api
 
 import com.doq.comfozi.ingestion.domain.IngestionStatus
 import com.doq.comfozi.ingestion.service.IngestionSessionStatus
+import com.doq.comfozi.ingestion.service.IngestionSessionSummary
+import java.time.LocalDateTime
 
 /**
  * 인입 세션 현황 — 입력 화면이 세션에 대해 보여주는 것 전부: 올라온 파일들과 수기 행들.
@@ -24,5 +26,26 @@ data class IngestionState(
         status = status.ingestion.status,
         uploads = status.uploads.map(::IngestionUploadResponse),
         manuals = status.manualRecords.map(::IngestionRecordResponse),
+    )
+}
+
+/**
+ * 목록 한 줄 — 세션이 무엇이고 얼마나 담겼는지. 업로드·행 내용은 없다([IngestionState] 로 따로 연다).
+ *
+ * 화면이 세션 목록을 스스로 기억하지 않고 서버에서 받도록 하기 위한 응답이다.
+ */
+data class IngestionSummaryResponse(
+    val ingestionId: Long,
+    val status: IngestionStatus,
+    val uploadCount: Int,
+    val recordCount: Int,
+    val createdAt: LocalDateTime,
+) {
+    constructor(summary: IngestionSessionSummary) : this(
+        ingestionId = requireNotNull(summary.ingestion.id),
+        status = summary.ingestion.status,
+        uploadCount = summary.uploadCount,
+        recordCount = summary.recordCount,
+        createdAt = summary.ingestion.createdAt,
     )
 }

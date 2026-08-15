@@ -63,6 +63,20 @@ class IngestionReadController(
     }
 
     /**
+     * 전체 세션 목록 (등록순) — 세션당 한 줄(상태·업로드 수·행 수·등록 시각). 비어 있으면 빈 배열.
+     *
+     * 이게 없으면 화면이 "내가 만든 세션"을 브라우저에 기억해 두는 수밖에 없고, 그러면 새로고침하거나
+     * 다른 브라우저·기기로 접속했을 때 세션이 통째로 사라진다. 세션이 무엇인지는 서버가 안다.
+     *
+     * 세션 하나의 내용(업로드·수기 행)은 [getIngestionState] 로 따로 연다 — 목록에 담으면 한 파일이
+     * 수만 행일 때 응답이 감당이 안 된다.
+     */
+    @Operation(summary = "인입 세션 목록 조회")
+    @GetMapping
+    fun getIngestions(): ApiResponse<List<IngestionSummaryResponse>> =
+        ApiResponse.ok(data = readService.getSessions().map(::IngestionSummaryResponse))
+
+    /**
      * 인입 세션 현황 조회 — 올라온 파일들과 수기 행들. 없으면 404.
      *
      * 변경 응답·현황 스트림과 **같은 [IngestionState]** 를 돌려준다. 화면이 세션에 대해 다루는 모델은
