@@ -6,6 +6,7 @@ import com.doq.comfozi.ingestion.domain.IngestionUpload
 import com.doq.comfozi.ingestion.domain.IngestionUploadRef
 import com.doq.comfozi.ingestion.domain.IngestionUploadStatus
 import com.doq.comfozi.ingestion.domain.IngestionUploadType
+import com.doq.comfozi.ingestion.domain.SourceType
 import com.doq.comfozi.ingestion.extraction.ExtractedItem
 import com.doq.comfozi.ingestion.extraction.ItemExtractor
 import com.doq.comfozi.ingestion.extraction.DocumentTextExtractor
@@ -75,7 +76,7 @@ class IngestionUploadParseService(
         uploadId: Long,
         textExtractor: DocumentTextExtractor,
         itemExtractor: ItemExtractor,
-        sourceType: String,
+        sourceType: SourceType,
     ) {
         val upload = uploadRepository.findByIdOrNull(uploadId) ?: return
         if (upload.status != IngestionUploadStatus.PARSING) return
@@ -89,13 +90,13 @@ class IngestionUploadParseService(
     }
 
     /** 추출 항목 → 원본 행. 캐노니컬 9필드 문자열 맵으로 담는다(수기 입력과 같은 모양). */
-    private fun List<ExtractedItem>.toRecords(upload: IngestionUpload, sourceType: String): List<IngestionRecord> =
+    private fun List<ExtractedItem>.toRecords(upload: IngestionUpload, sourceType: SourceType): List<IngestionRecord> =
         mapIndexed { i, item ->
             val rowNo = i + 1
             val content = AppObjectMapper.instance
                 .convertValue(item, jacksonTypeRef<Map<String, String?>>())
                 .plus("docId" to "DOC-U${upload.id}-$rowNo")
-                .plus("sourceType" to sourceType)
+                .plus("sourceType" to sourceType.name)
 
             IngestionRecord(
                 ingestionId = upload.ingestionId,

@@ -69,7 +69,7 @@ class IngestionRecordMutationTest(
                 "unit" to "PK",
                 "priceBefore" to 2000,
                 "priceAfter" to priceAfter,
-                "effectiveDate" to "2026-09-01",
+                "effectiveDate" to "2026-08-15",
             ),
         )
 
@@ -87,7 +87,7 @@ class IngestionRecordMutationTest(
 
         val saved = recordRepository.findByIdOrNull(ingestionRecordId)!!
         assertEquals("고친품목", saved.content.values["rawItemName"])
-        assertEquals("2026-09-01", saved.content.values["effectiveDate"])
+        assertEquals("2026-08-15", saved.content.values["effectiveDate"])
     }
 
     @Test

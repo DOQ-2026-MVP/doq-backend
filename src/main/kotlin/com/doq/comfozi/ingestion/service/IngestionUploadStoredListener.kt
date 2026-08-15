@@ -6,6 +6,7 @@ import com.doq.comfozi.ingestion.extraction.ItemExtractor
 import com.doq.comfozi.ingestion.extraction.PdfTextExtractor
 import com.doq.comfozi.ingestion.extraction.TableTextItemExtractor
 import com.doq.comfozi.ingestion.support.ClassifiedFile
+import com.doq.comfozi.ingestion.support.DocumentFormat
 import com.doq.common.config.AsyncConfig
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
@@ -64,13 +65,13 @@ class IngestionUploadStoredListener(
         }
 
         val extractor = itemExtractor.getIfAvailable() ?: TableTextItemExtractor
-        parseService.extract(uploadId, textExtractor, extractor, sourceType = classified.format)
+        parseService.extract(uploadId, textExtractor, extractor, sourceType = classified.format.sourceType)
     }
 
     /** 형식별로 글자를 꺼내는 방법. OCR 이 설치돼 있지 않으면 이미지는 방법이 없다(null). */
-    private fun textExtractorFor(format: String): DocumentTextExtractor? = when (format) {
-        PDF -> pdfTextExtractor
-        else -> imageTextExtractor.takeIf { it.isAvailable }
+    private fun textExtractorFor(format: DocumentFormat): DocumentTextExtractor? = when (format) {
+        DocumentFormat.PDF -> pdfTextExtractor
+        DocumentFormat.PNG, DocumentFormat.JPEG -> imageTextExtractor.takeIf { it.isAvailable }
     }
 
     /** 어느 경로든 실패는 같은 방식으로 남긴다 — 예외를 밖으로 던지면 업로드가 PARSING 에 갇힌다. */
@@ -89,9 +90,4 @@ class IngestionUploadStoredListener(
      */
     private fun reasonOf(e: Exception): String =
         (e as? IllegalArgumentException)?.message ?: "파일을 처리하지 못했습니다"
-
-    private companion object {
-        /** 지금 추출을 지원하는 유일한 문서 형식 ([com.doq.comfozi.ingestion.support.ClassifiedFile] 의 값). */
-        const val PDF = "PDF"
-    }
 }
