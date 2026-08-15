@@ -194,6 +194,25 @@ class IngestionControllerTest(
             .andExpect(jsonPath("$.error.fields[?(@.field == '[0].effectiveDate')]").exists())
     }
 
+    // 화면이 실제로 보내는 모양 그대로 — 빈 문자열이고 화면 전용 키(uploadMethod 등)가 섞여 있다.
+    // `[{}]` 만 검증하면 이 경로가 fields 없이 message 한 줄로 떨어져도 눈치채지 못한다.
+    @Test
+    fun `POST records - 화면이 보내는 빈 문자열 페이로드도 필드별 사유를 준다`() {
+        val asFrontendSends =
+            """[{"docId":"","sourceType":"MANUAL","supplier":"","rawItemName":"","spec":"",""" +
+                """"unit":"","priceBefore":"","priceAfter":"","effectiveDate":"",""" +
+                """"uploadMethod":"MANUAL","uploadRowNo":null,"fileName":null}]"""
+
+        mockMvc.perform(
+            post("/api/ingestion/records").contentType(MediaType.APPLICATION_JSON).content(asFrontendSends),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.fields").isArray)
+            .andExpect(jsonPath("$.error.fields[?(@.field == '[0].docId')].reason").value("문서ID는 필수입니다"))
+            .andExpect(jsonPath("$.error.fields[?(@.field == '[0].spec')]").exists())
+            .andExpect(jsonPath("$.error.fields[?(@.field == '[0].unit')]").exists())
+    }
+
     // 단일 바디(PUT)는 인덱스 없이 필드명만 온다.
     @Test
     fun `PUT record - 검증 실패는 인덱스 없는 필드명을 준다`() {
