@@ -4,6 +4,7 @@ import com.doq.comfozi.inspection.service.InspectionReviewService
 import com.doq.common.web.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -28,7 +29,7 @@ class InspectionReviewController(
     @PatchMapping("/records/{inspectionRecordId}")
     fun edit(
         @PathVariable inspectionRecordId: Long,
-        @RequestBody request: InspectionRecordEditRequest,
+        @RequestBody request: @Valid InspectionRecordEditRequest,
     ): ApiResponse<InspectionRecordResponse> =
         ApiResponse.ok(InspectionRecordResponse(service.edit(inspectionRecordId, request.toMappedRecord())))
 

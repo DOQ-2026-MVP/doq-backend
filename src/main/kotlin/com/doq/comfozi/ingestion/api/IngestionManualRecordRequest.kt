@@ -4,6 +4,7 @@ import com.doq.comfozi.ingestion.domain.SourceType
 import com.doq.comfozi.ingestion.service.IngestionManualInput
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.PastOrPresent
 import jakarta.validation.constraints.PositiveOrZero
 import java.time.LocalDate
 
@@ -44,6 +45,7 @@ data class IngestionManualRecordRequest(
     val priceAfter: Long? = null,
 
     @field:NotNull(message = "적용일은 필수입니다 (yyyy-MM-dd)")
+    @field:PastOrPresent(message = "적용일은 미래일 수 없습니다.")
     val effectiveDate: LocalDate? = null,
 ) {
     /** 서비스 입력 DTO로 매핑. @Valid 통과 후 호출되므로 전 필드 non-null 보장(`!!`). */
