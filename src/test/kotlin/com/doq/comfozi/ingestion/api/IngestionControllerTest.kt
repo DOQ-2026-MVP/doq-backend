@@ -146,6 +146,9 @@ class IngestionControllerTest(
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
+            // 타입 불일치는 @Valid 전에 끊기지만, 어느 칸인지는 알려줘야 한다.
+            .andExpect(jsonPath("$.error.fields[0].field").value("[0].priceBefore"))
+            .andExpect(jsonPath("$.error.fields[0].reason").value("숫자여야 합니다"))
     }
 
     @Test
@@ -157,6 +160,8 @@ class IngestionControllerTest(
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
+            .andExpect(jsonPath("$.error.fields[0].field").value("[0].effectiveDate"))
+            .andExpect(jsonPath("$.error.fields[0].reason").value("날짜 형식이 올바르지 않습니다 (yyyy-MM-dd)"))
     }
 
     @Test
