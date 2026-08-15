@@ -43,24 +43,24 @@ class InspectionChangeLogTest(
         return inspectionRepository.awaitInspection(session.id!!).id!!
     }
 
-    private fun firstRecordId(inspectionId: Long): Long =
+    private fun firstInspectionRecordId(inspectionId: Long): Long =
         recordRepository.findByInspectionIdOrderByIdAsc(inspectionId).first().id!!
 
     @Test
     fun `편집하면 EDIT 이력이 바뀐 필드 diff만 남는다`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
         // 현재값을 읽어 supplier 한 필드만 바꿔 전체 교체 → diff는 supplier 1건이어야 함
-        val current = recordRepository.findById(recordId).get().current
+        val current = recordRepository.findById(inspectionRecordId).get().current
         val before = current.supplier
         val body = objectMapper.writeValueAsString(current.copy(supplier = "교정공급사"))
 
         mockMvc.perform(
-            patch("/api/inspection/records/$recordId")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body),
         ).andExpect(status().isOk)
 
-        mockMvc.perform(get("/api/inspection/records/$recordId/changelog"))
+        mockMvc.perform(get("/api/inspection/records/$inspectionRecordId/changelog"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.length()").value(1))
             .andExpect(jsonPath("$.data[0].type").value("EDIT"))
@@ -73,11 +73,11 @@ class InspectionChangeLogTest(
 
     @Test
     fun `확정하면 메모와 상태 전이가 이력에 남는다`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
 
         // 메모는 레코드에 남고(응답에 노출), 이력에는 상태 전이만 남는다
         mockMvc.perform(
-            post("/api/inspection/records/$recordId/confirm")
+            post("/api/inspection/records/$inspectionRecordId/confirm")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"memo":"검토 완료"}"""),
         )
@@ -85,7 +85,7 @@ class InspectionChangeLogTest(
             .andExpect(jsonPath("$.data.status").value("CONFIRMED"))
             .andExpect(jsonPath("$.data.memo").value("검토 완료")) // 메모는 레코드에
 
-        mockMvc.perform(get("/api/inspection/records/$recordId/changelog"))
+        mockMvc.perform(get("/api/inspection/records/$inspectionRecordId/changelog"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.length()").value(1))
             .andExpect(jsonPath("$.data[0].type").value("CONFIRM"))
@@ -95,10 +95,10 @@ class InspectionChangeLogTest(
 
     @Test
     fun `반려하면 사유는 레코드에, REJECT 이력이 남는다`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
 
         mockMvc.perform(
-            post("/api/inspection/records/$recordId/reject")
+            post("/api/inspection/records/$inspectionRecordId/reject")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"memo":"규격 재확인 필요"}"""),
         )
@@ -106,7 +106,7 @@ class InspectionChangeLogTest(
             .andExpect(jsonPath("$.data.status").value("REJECTED"))
             .andExpect(jsonPath("$.data.memo").value("규격 재확인 필요")) // 메모는 레코드에
 
-        mockMvc.perform(get("/api/inspection/records/$recordId/changelog"))
+        mockMvc.perform(get("/api/inspection/records/$inspectionRecordId/changelog"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data[0].type").value("REJECT"))
             .andExpect(jsonPath("$.data[0].toStatus").value("REJECTED"))
@@ -114,11 +114,11 @@ class InspectionChangeLogTest(
 
     @Test
     fun `여러 변경이 시각순으로 누적된다`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
 
         // 전체 교체 편집 — confirm 되려면 필수값이 모두 채워져 있어야 함
         mockMvc.perform(
-            patch("/api/inspection/records/$recordId")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -127,10 +127,10 @@ class InspectionChangeLogTest(
                     """.trimIndent(),
                 ),
         ).andExpect(status().isOk)
-        mockMvc.perform(post("/api/inspection/records/$recordId/reject")).andExpect(status().isOk)
-        mockMvc.perform(post("/api/inspection/records/$recordId/confirm")).andExpect(status().isOk)
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/reject")).andExpect(status().isOk)
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm")).andExpect(status().isOk)
 
-        mockMvc.perform(get("/api/inspection/records/$recordId/changelog"))
+        mockMvc.perform(get("/api/inspection/records/$inspectionRecordId/changelog"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.length()").value(3))
             .andExpect(jsonPath("$.data[0].type").value("EDIT"))
@@ -141,9 +141,9 @@ class InspectionChangeLogTest(
 
     @Test
     fun `본문 없이 확정하면 메모는 null`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
 
-        mockMvc.perform(post("/api/inspection/records/$recordId/confirm"))
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.memo").value(nullValue()))
     }
@@ -157,7 +157,7 @@ class InspectionChangeLogTest(
             .andExpect(jsonPath("$.data.confirmedCount").value(2))
 
         recordRepository.findByInspectionIdOrderByIdAsc(inspectionId).forEach { record ->
-            val logs = changeLogRepository.findByRecordIdOrderByIdAsc(record.id!!)
+            val logs = changeLogRepository.findByInspectionRecordIdOrderByIdAsc(record.id!!)
             assertEquals(1, logs.size)
             assertEquals(InspectionChangeType.CONFIRM, logs.first().type)
         }

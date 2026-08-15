@@ -40,13 +40,13 @@ interface IngestionService {
      * 수기 행의 원문을 교체한다(오타 정정 등). 파일 출처 행은 원본 근거라 대상이 아니며(409),
      * 수정은 구조화 이후 검수 단계의 몫이다. DRAFT·FAILED 세션에서만 가능.
      */
-    fun updateManualRecord(ingestionId: Long, recordId: Long, input: IngestionManualInput): IngestionRecord
+    fun updateManualRecord(ingestionId: Long, ingestionRecordId: Long, input: IngestionManualInput): IngestionRecord
 
     /**
      * 원본 행 1건을 삭제한다 (수기·파일 무관 — 구조화 전이라 지워도 깨지는 불변식이 없다).
      * DRAFT·FAILED 세션에서만 가능하며, 세션에 속하지 않은 행 id면 없는 것으로 취급한다(404).
      */
-    fun deleteRecord(ingestionId: Long, recordId: Long): Ingestion
+    fun deleteRecord(ingestionId: Long, ingestionRecordId: Long): Ingestion
 
     /**
      * 업로드 1건을 세션에서 제거한다 — 그 업로드에서 나온 원본 행과 저장 원본까지 함께 지운다.

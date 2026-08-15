@@ -78,25 +78,25 @@ class IngestionServiceImpl(
     }
 
     @Transactional
-    override fun updateManualRecord(ingestionId: Long, recordId: Long, input: IngestionManualInput): IngestionRecord {
+    override fun updateManualRecord(ingestionId: Long, ingestionRecordId: Long, input: IngestionManualInput): IngestionRecord {
         val session = editableSession(ingestionId)
 
-        val record = ownedRecord(ingestionId, recordId)
+        val record = ownedRecord(ingestionId, ingestionRecordId)
         record.replaceContent(input.toContent()) // 파일 출처면 도메인이 거부(409)
         session.reopen() // 입력이 바뀜 → 재검증 필요
 
-        publishChange(session, IngestionChange.RecordUpdated(recordId))
+        publishChange(session, IngestionChange.RecordUpdated(ingestionRecordId))
         return record
     }
 
     @Transactional
-    override fun deleteRecord(ingestionId: Long, recordId: Long): Ingestion {
+    override fun deleteRecord(ingestionId: Long, ingestionRecordId: Long): Ingestion {
         val session = editableSession(ingestionId)
 
-        recordRepository.delete(ownedRecord(ingestionId, recordId))
+        recordRepository.delete(ownedRecord(ingestionId, ingestionRecordId))
         session.reopen() // 입력이 바뀜 → 재검증 필요
 
-        publishChange(session, IngestionChange.RecordDeleted(recordId))
+        publishChange(session, IngestionChange.RecordDeleted(ingestionRecordId))
         return session
     }
 
@@ -198,10 +198,10 @@ class IngestionServiceImpl(
     }
 
     /** 해당 세션에 속한 원본 행 — 없거나 다른 세션의 행이면 없는 것으로 취급(404). */
-    private fun ownedRecord(ingestionId: Long, recordId: Long): IngestionRecord =
-        recordRepository.findByIdOrNull(recordId)
+    private fun ownedRecord(ingestionId: Long, ingestionRecordId: Long): IngestionRecord =
+        recordRepository.findByIdOrNull(ingestionRecordId)
             ?.takeIf { it.ingestionId == ingestionId }
-            ?: throw NoSuchElementException("세션 $ingestionId 에 없는 원본 행 $recordId")
+            ?: throw NoSuchElementException("세션 $ingestionId 에 없는 원본 행 $ingestionRecordId")
 
     /** 해당 세션에 속한 업로드 — 없거나 다른 세션의 업로드면 없는 것으로 취급(404). */
     private fun ownedUpload(ingestionId: Long, uploadId: Long): IngestionUpload =

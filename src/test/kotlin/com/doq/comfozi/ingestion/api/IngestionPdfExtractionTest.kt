@@ -151,8 +151,8 @@ class IngestionPdfExtractionTest(
         structuringService.struct(id)
 
         val inspection = inspectionRepository.awaitInspection(id)
-        val recordId = inspectionRecordRepository.findByInspectionIdOrderByIdAsc(inspection.id!!).single().id
-        mockMvc.perform(post("/api/inspection/records/$recordId/confirm")).andExpect(status().isOk)
+        val inspectionRecordId = inspectionRecordRepository.findByInspectionIdOrderByIdAsc(inspection.id!!).single().id
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm")).andExpect(status().isOk)
 
         mockMvc.perform(get("/api/inspection/${inspection.id}/export.json"))
             .andExpect(status().isOk)

@@ -30,7 +30,7 @@ class InspectionIntakeListener(
         val records = event.records.map { record ->
             InspectionRecord(
                 inspectionId = requireNotNull(inspection.id),
-                recordId = record.recordId,
+                ingestionRecordId = record.ingestionRecordId,
                 uploadType = record.uploadType,
                 rowNo = record.rowNo,
                 observed = record.observed,

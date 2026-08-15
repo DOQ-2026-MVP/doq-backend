@@ -54,23 +54,23 @@ class InspectionReviewControllerTest(
         return inspectionRepository.awaitInspection(session.id!!).id!!
     }
 
-    private fun firstRecordId(inspectionId: Long): Long =
+    private fun firstInspectionRecordId(inspectionId: Long): Long =
         recordRepository.findByInspectionIdOrderByIdAsc(inspectionId).first().id!!
 
     /** 편집본([values]) 전체를 PATCH — MappedRecord 필드명이 편집 요청 스키마와 일치해 그대로 직렬화한다. */
-    private fun patchEdit(recordId: Long, values: MappedRecord) =
+    private fun patchEdit(inspectionRecordId: Long, values: MappedRecord) =
         mockMvc.perform(
-            patch("/api/inspection/records/$recordId")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(values)),
         ).andExpect(status().isOk)
 
     @Test
     fun `PATCH record - current 교체`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
 
         mockMvc.perform(
-            patch("/api/inspection/records/$recordId")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"supplier":"교정공급사","normalizedItemName":"교정품목"}"""),
         )
@@ -79,7 +79,7 @@ class InspectionReviewControllerTest(
             .andExpect(jsonPath("$.data.current.normalizedItemName").value("교정품목"))
             .andExpect(jsonPath("$.data.observed.docId").value("DOC-1")) // 관찰값은 불변
 
-        assertEquals("교정공급사", recordRepository.findById(recordId).get().current.supplier)
+        assertEquals("교정공급사", recordRepository.findById(inspectionRecordId).get().current.supplier)
     }
 
     @Test
@@ -112,19 +112,19 @@ class InspectionReviewControllerTest(
 
     @Test
     fun `PATCH record - 필수값 비우면 missing_required 추가, 다시 채우면 제거`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
 
         // 전체 교체로 대부분 필드를 비운다 → 필수값 누락
         mockMvc.perform(
-            patch("/api/inspection/records/$recordId")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"rawItemName":"품목만"}"""),
         ).andExpect(status().isOk)
-        assertEquals(setOf(MISSING_REQUIRED), recordRepository.findById(recordId).get().flags)
+        assertEquals(setOf(MISSING_REQUIRED), recordRepository.findById(inspectionRecordId).get().flags)
 
         // 온전한 값으로 다시 채움 → 플래그 사라짐
         mockMvc.perform(
-            patch("/api/inspection/records/$recordId")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """{"docId":"DOC-1","sourceType":"수기","supplier":"직접입력","rawItemName":"임시품목",
@@ -132,7 +132,7 @@ class InspectionReviewControllerTest(
                        "effectiveDate":"2026-08-05"}""",
                 ),
         ).andExpect(status().isOk)
-        assertEquals(emptySet(), recordRepository.findById(recordId).get().flags)
+        assertEquals(emptySet(), recordRepository.findById(inspectionRecordId).get().flags)
     }
 
     @Test
@@ -194,31 +194,31 @@ class InspectionReviewControllerTest(
 
     @Test
     fun `POST record confirm - NEW to CONFIRMED`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
 
-        mockMvc.perform(post("/api/inspection/records/$recordId/confirm"))
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.status").value("CONFIRMED"))
 
-        assertEquals(InspectionRecordStatus.CONFIRMED, recordRepository.findById(recordId).get().status)
+        assertEquals(InspectionRecordStatus.CONFIRMED, recordRepository.findById(inspectionRecordId).get().status)
     }
 
     @Test
     fun `POST record reject - to REJECTED`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
 
-        mockMvc.perform(post("/api/inspection/records/$recordId/reject"))
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/reject"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.status").value("REJECTED"))
     }
 
     @Test
     fun `PATCH record - 확정된 레코드 편집은 409`() {
-        val recordId = firstRecordId(structured())
-        mockMvc.perform(post("/api/inspection/records/$recordId/confirm")).andExpect(status().isOk)
+        val inspectionRecordId = firstInspectionRecordId(structured())
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm")).andExpect(status().isOk)
 
         mockMvc.perform(
-            patch("/api/inspection/records/$recordId")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"supplier":"뒤늦은교정"}"""),
         )
@@ -246,19 +246,19 @@ class InspectionReviewControllerTest(
 
     @Test
     fun `POST record confirm - 필수값 누락이면 409 (승인 차단)`() {
-        val recordId = firstRecordId(structured())
+        val inspectionRecordId = firstInspectionRecordId(structured())
         // 편집으로 필수값을 비운다(전체 교체 — 대부분 필드 null)
         mockMvc.perform(
-            patch("/api/inspection/records/$recordId")
+            patch("/api/inspection/records/$inspectionRecordId")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"rawItemName":"품목만"}"""),
         ).andExpect(status().isOk)
 
-        mockMvc.perform(post("/api/inspection/records/$recordId/confirm"))
+        mockMvc.perform(post("/api/inspection/records/$inspectionRecordId/confirm"))
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.error.code").value("CONFLICT"))
 
-        assertEquals(InspectionRecordStatus.NEW, recordRepository.findById(recordId).get().status)
+        assertEquals(InspectionRecordStatus.NEW, recordRepository.findById(inspectionRecordId).get().status)
     }
 
     @Test

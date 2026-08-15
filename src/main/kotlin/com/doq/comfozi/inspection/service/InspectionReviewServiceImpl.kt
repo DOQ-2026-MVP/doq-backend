@@ -27,8 +27,8 @@ class InspectionReviewServiceImpl(
 ) : InspectionReviewService {
 
     @Transactional
-    override fun edit(recordId: Long, values: MappedRecord): InspectionRecord {
-        val record = record(recordId)
+    override fun edit(inspectionRecordId: Long, values: MappedRecord): InspectionRecord {
+        val record = record(inspectionRecordId)
         val changes = diffFields(record.current, values) // 이전 편집본 대비 변경분만
         record.edit(values)
         record.reevaluatePerRecordFlags(anomalyDetector.detectPerRecord(record.current)) // 편집본 기준 재평가(per-record)
@@ -51,12 +51,12 @@ class InspectionReviewServiceImpl(
     }
 
     @Transactional
-    override fun confirm(recordId: Long, memo: String?): InspectionRecord =
-        transition(recordId, InspectionChangeType.CONFIRM) { it.confirm(memo) }
+    override fun confirm(inspectionRecordId: Long, memo: String?): InspectionRecord =
+        transition(inspectionRecordId, InspectionChangeType.CONFIRM) { it.confirm(memo) }
 
     @Transactional
-    override fun reject(recordId: Long, memo: String?): InspectionRecord =
-        transition(recordId, InspectionChangeType.REJECT) { it.reject(memo) }
+    override fun reject(inspectionRecordId: Long, memo: String?): InspectionRecord =
+        transition(inspectionRecordId, InspectionChangeType.REJECT) { it.reject(memo) }
 
     @Transactional
     override fun confirmAll(inspectionId: Long): BulkConfirmResult {
@@ -76,18 +76,18 @@ class InspectionReviewServiceImpl(
 
     /** 상태 전이 공통 — 이전 상태 캡처 → [apply] 전이(메모는 도메인이 세팅) → 이력 기록. */
     private fun transition(
-        recordId: Long,
+        inspectionRecordId: Long,
         type: InspectionChangeType,
         apply: (InspectionRecord) -> Unit,
     ): InspectionRecord {
-        val record = record(recordId)
+        val record = record(inspectionRecordId)
         val from = record.status
         apply(record)
         changeLogRepository.save(InspectionChangeLog.transitioned(record, type, from))
         return record
     }
 
-    private fun record(recordId: Long): InspectionRecord =
-        recordRepository.findByIdOrNull(recordId)
-            ?: throw NoSuchElementException("알 수 없는 검수 레코드 $recordId")
+    private fun record(inspectionRecordId: Long): InspectionRecord =
+        recordRepository.findByIdOrNull(inspectionRecordId)
+            ?: throw NoSuchElementException("알 수 없는 검수 레코드 $inspectionRecordId")
 }

@@ -33,10 +33,10 @@ sealed interface IngestionChange {
     data class RecordsAdded(val addedCount: Int) : IngestionChange
 
     /** 수기 행의 원문이 교체됨. */
-    data class RecordUpdated(val recordId: Long) : IngestionChange
+    data class RecordUpdated(val ingestionRecordId: Long) : IngestionChange
 
     /** 원본 행 1건 삭제됨 (수기·파일 무관). */
-    data class RecordDeleted(val recordId: Long) : IngestionChange
+    data class RecordDeleted(val ingestionRecordId: Long) : IngestionChange
 
     /** 세션이 비워짐 — 원본 행·업로드·저장 파일 전부. */
     data object SessionCleared : IngestionChange

@@ -175,13 +175,13 @@ class IngestionEventStreamTest(
     @Test
     fun `수기 행 수정도 흐른다`() {
         val id = service.ingestManual(listOf(manualInput(docId = "MAN-1"))).id!!
-        val recordId = recordRepository.findByIngestionIdOrderByIdAsc(id).single().id!!
+        val ingestionRecordId = recordRepository.findByIngestionIdOrderByIdAsc(id).single().id!!
         val stream = subscribe(id)
 
-        service.updateManualRecord(id, recordId, manualInput(docId = "MAN-1", rawItemName = "고친품목"))
+        service.updateManualRecord(id, ingestionRecordId, manualInput(docId = "MAN-1", rawItemName = "고친품목"))
 
         val last = awaitStream(stream, "RECORD_UPDATED").last()
-        assertEquals(recordId.toInt(), last.change()["recordId"])
+        assertEquals(ingestionRecordId.toInt(), last.change()["ingestionRecordId"])
 
         val manual = last.manuals().single() as Map<*, *>
         assertEquals("고친품목", (manual["content"] as Map<*, *>)["rawItemName"]) // 고쳐진 원문이 실린다
@@ -190,13 +190,13 @@ class IngestionEventStreamTest(
     @Test
     fun `행 삭제도 흐른다`() {
         val id = service.ingestManual(listOf(manualInput(docId = "MAN-1"), manualInput(docId = "MAN-2"))).id!!
-        val recordId = recordRepository.findByIngestionIdOrderByIdAsc(id).first().id!!
+        val ingestionRecordId = recordRepository.findByIngestionIdOrderByIdAsc(id).first().id!!
         val stream = subscribe(id)
 
-        service.deleteRecord(id, recordId)
+        service.deleteRecord(id, ingestionRecordId)
 
         val last = awaitStream(stream, "RECORD_DELETED").last()
-        assertEquals(recordId.toInt(), last.change()["recordId"])
+        assertEquals(ingestionRecordId.toInt(), last.change()["ingestionRecordId"])
         assertEquals(1, last.manuals().size) // 지운 행이 빠진 현황
     }
 
