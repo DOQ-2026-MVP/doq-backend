@@ -1,5 +1,6 @@
 package com.doq.comfozi.inspection.api
 
+import com.doq.comfozi.ingestion.domain.SourceType
 import com.doq.comfozi.structuring.mapping.MappedRecord
 
 /** 확정/반려 요청 — 선택적 메모(사유)를 싣는다. 본문 없이 호출해도 된다. */
@@ -26,7 +27,9 @@ data class InspectionRecordEditRequest(
 ) {
     fun toMappedRecord() = MappedRecord(
         docId = docId,
-        sourceType = sourceType,
+        // 검수로 들어오는 값은 어휘로 맞춰 받는다 — 클라이언트가 확장자 표기를 되돌려 보내도
+        // 같은 뜻이 PNG·IMAGE 로 갈라져 쌓이지 않는다. 모르는 값은 원문 그대로 둔다.
+        sourceType = SourceType.normalizeOrKeep(sourceType),
         supplier = supplier,
         rawItemName = rawItemName,
         spec = spec,

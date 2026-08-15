@@ -1,5 +1,6 @@
 package com.doq.comfozi.ingestion.support
 
+import com.doq.comfozi.ingestion.domain.SourceType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -15,13 +16,20 @@ class IngestionFileClassifierTest {
     @Test
     fun `PDF·PNG·JPEG는 보관 전용 문서로 분류된다`() {
         val cases = mapOf(
-            "PDF" to "%PDF-1.7\n…".toByteArray(),
-            "PNG" to byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A),
-            "JPEG" to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte()),
+            DocumentFormat.PDF to "%PDF-1.7\n…".toByteArray(),
+            DocumentFormat.PNG to byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A),
+            DocumentFormat.JPEG to byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte()),
         )
         for ((expected, bytes) in cases) {
             assertEquals(expected, assertIs<ClassifiedFile.Document>(classifier.classify(bytes)).format)
         }
+    }
+
+    @Test
+    fun `이미지 포맷의 원본유형은 확장자가 아니라 IMAGE 다 - 화면 어휘로 새어나가지 않게`() {
+        assertEquals(SourceType.IMAGE, DocumentFormat.PNG.sourceType)
+        assertEquals(SourceType.IMAGE, DocumentFormat.JPEG.sourceType)
+        assertEquals(SourceType.PDF, DocumentFormat.PDF.sourceType)
     }
 
     @Test

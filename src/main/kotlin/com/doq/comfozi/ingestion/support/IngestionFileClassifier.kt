@@ -1,5 +1,6 @@
 package com.doq.comfozi.ingestion.support
 
+import com.doq.comfozi.ingestion.domain.SourceType
 import org.springframework.stereotype.Component
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
@@ -53,9 +54,9 @@ class IngestionFileClassifier {
         /** 매직 바이트 → 처리 경로. 위에서부터 먼저 매칭된다. */
         val MAGIC: List<Pair<ByteArray, ClassifiedFile>> = listOf(
             byteArrayOf(0x50, 0x4B) to ClassifiedFile.BatchFile(BatchFileFormat.XLSX), // PK — zip(xlsx)
-            byteArrayOf(0x25, 0x50, 0x44, 0x46) to ClassifiedFile.Document("PDF"), // %PDF
-            byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47) to ClassifiedFile.Document("PNG"), // \x89PNG
-            byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()) to ClassifiedFile.Document("JPEG"),
+            byteArrayOf(0x25, 0x50, 0x44, 0x46) to ClassifiedFile.Document(DocumentFormat.PDF), // %PDF
+            byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47) to ClassifiedFile.Document(DocumentFormat.PNG), // \x89PNG
+            byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()) to ClassifiedFile.Document(DocumentFormat.JPEG),
         )
     }
 }
@@ -67,8 +68,21 @@ sealed interface ClassifiedFile {
     data class BatchFile(val format: BatchFileFormat) : ClassifiedFile
 
     /** 원본 증빙 문서 — 보관만 하고 행은 만들지 않는다(행 추출 미지원). */
-    data class Document(val format: String) : ClassifiedFile
+    data class Document(val format: DocumentFormat) : ClassifiedFile
 }
 
 /** 취합 표 파일의 포맷. */
 enum class BatchFileFormat { CSV, XLSX }
+
+/**
+ * 원본 증빙 문서의 포맷 — **글자를 어떻게 꺼낼지**와 **증빙의 원래 유형**을 함께 정한다.
+ *
+ * 둘은 갈라진다. PNG 와 JPEG 는 꺼내는 법이 같고(OCR) 원래 유형도 같은 [SourceType.IMAGE] 지만,
+ * 포맷 자체는 구분해 둬야 분류 결과를 로그로 읽을 수 있다. 이 포맷명이 원본유형으로 그대로 새어
+ * 나가면 안 된다 — 화면은 범주 어휘를 쓴다.
+ */
+enum class DocumentFormat(val sourceType: SourceType) {
+    PDF(SourceType.PDF),
+    PNG(SourceType.IMAGE),
+    JPEG(SourceType.IMAGE),
+}

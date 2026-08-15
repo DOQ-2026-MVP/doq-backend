@@ -1,5 +1,6 @@
 package com.doq.comfozi.ingestion.api
 
+import com.doq.comfozi.ingestion.domain.SourceType
 import com.doq.comfozi.ingestion.service.IngestionManualInput
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
@@ -49,7 +50,7 @@ data class IngestionManualRecordRequest(
     fun toInput(): IngestionManualInput =
         IngestionManualInput(
             docId = docId!!,
-            sourceType = sourceType!!,
+            sourceType = SourceType.normalizeOrKeep(sourceType)!!,
             supplier = supplier!!,
             rawItemName = rawItemName!!,
             spec = spec!!,
