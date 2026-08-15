@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import kotlin.test.Test
@@ -174,6 +175,41 @@ class IngestionControllerTest(
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error.code").value("BAD_REQUEST"))
+    }
+
+    // 프론트가 어떤 칸이 틀렸는지 짚으려면 message 한 줄이 아니라 필드별 사유가 와야 한다.
+    @Test
+    fun `POST records - 검증 실패는 필드별 사유를 fields 로 준다`() {
+        mockMvc.perform(
+            post("/api/ingestion/records").contentType(MediaType.APPLICATION_JSON).content("[{}]"),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.fields").isArray)
+            .andExpect(jsonPath("$.error.fields[?(@.field == '[0].docId')].reason").value("문서ID는 필수입니다"))
+            .andExpect(jsonPath("$.error.fields[?(@.field == '[0].effectiveDate')]").exists())
+    }
+
+    // 단일 바디(PUT)는 인덱스 없이 필드명만 온다.
+    @Test
+    fun `PUT record - 검증 실패는 인덱스 없는 필드명을 준다`() {
+        val id = service.createSession().id!!
+        mockMvc.perform(
+            post("/api/ingestion/$id/records")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("[$validManualRecord]"),
+        ).andExpect(status().isCreated)
+        val recordId = mockMvc.perform(get("/api/ingestion/$id/records"))
+            .andReturn().response.contentAsString
+            .substringAfter("\"id\":").substringBefore(",")
+
+        mockMvc.perform(
+            put("/api/ingestion/$id/records/$recordId")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"docId":"","sourceType":"수기","supplier":"직접입력","rawItemName":"임시품목","spec":"1kg/PK","unit":"PK","priceBefore":1000,"priceAfter":1100,"effectiveDate":"2026-08-05"}"""),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.fields[0].field").value("docId"))
+            .andExpect(jsonPath("$.error.fields[0].reason").value("문서ID는 필수입니다"))
     }
 
     @Test
